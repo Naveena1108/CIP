@@ -220,16 +220,28 @@ def create_access_token(
     user_id: str,
     email: str,
     role: str,
-    expires_delta: Optional[timedelta] = None
+    expires_delta: Optional[timedelta] = None,
+    primary_institution_id: Optional[str] = None,
+    organization_id: Optional[str] = None,
+    onboarding_completed: Optional[bool] = None,
+    full_name: Optional[str] = None,
 ) -> str:
     expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS))
-    to_encode = {
+    to_encode: Dict[str, object] = {
         "sub": user_id,
         "email": email,
         "role": role,
         "iat": int(datetime.now(timezone.utc).timestamp()),
-        "exp": int(expire.timestamp())
+        "exp": int(expire.timestamp()),
     }
+    if primary_institution_id is not None:
+        to_encode["primary_institution_id"] = primary_institution_id
+    if organization_id is not None:
+        to_encode["organization_id"] = organization_id
+    if onboarding_completed is not None:
+        to_encode["onboarding_completed"] = bool(onboarding_completed)
+    if full_name is not None:
+        to_encode["full_name"] = full_name
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
@@ -258,7 +270,34 @@ async def get_current_user(
         raise credentials_exception
 
     user = await UserRepository.get_by_email(session, email=email)
-    if user is None or not user.is_active:
+    if user is None:
+        user = await UserRepository.get_by_id(session, user_id=user_id)
+    if user is None:
+        # Serverless / multi-worker deployments using per-instance SQLite (/tmp/ai_criss.db)
+        # may route a subsequent request with a valid signed JWT to a worker that has not yet
+        # materialized this authenticated user row. Re-hydrate from the verified JWT claims.
+        user = await UserRepository.create_user(
+            session=session,
+            user_id=user_id,
+            email=email,
+            hashed_password="!JWT_SESSION_HYDRATED",
+            role=str(payload.get("role") or "Auditor"),
+            auth_provider="jwt_session",
+            full_name=payload.get("full_name"),
+            organization_id=payload.get("organization_id"),
+            primary_institution_id=payload.get("primary_institution_id"),
+            onboarding_completed=bool(payload.get("onboarding_completed", False)),
+        )
+    else:
+        if payload.get("onboarding_completed") and not user.onboarding_completed:
+            user.onboarding_completed = True
+        if payload.get("primary_institution_id") and not user.primary_institution_id:
+            user.primary_institution_id = str(payload.get("primary_institution_id"))
+        if payload.get("organization_id") and not user.organization_id:
+            user.organization_id = str(payload.get("organization_id"))
+        await session.flush()
+
+    if not user.is_active:
         raise credentials_exception
     return user
 

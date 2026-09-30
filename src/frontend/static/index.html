@@ -2221,24 +2221,32 @@
             };
 
             try {
+                const activeToken = getStoredJwt() || await ensureAuthenticatedSession();
+                const reqHeaders = { 'Content-Type': 'application/json' };
+                if (activeToken) {
+                    reqHeaders['Authorization'] = `Bearer ${activeToken}`;
+                }
                 const res = await authFetch('/api/v1/auth/onboarding', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: reqHeaders,
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
-                    errBox.innerText = data.detail ? JSON.stringify(data.detail) : `Onboarding failed (${res.status})`;
+                    errBox.innerText = data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : `Onboarding failed (${res.status})`;
                     errBox.classList.remove('hidden');
                     return false;
                 }
 
-                localStorage.setItem('aicriss_onboarding_required', 'false');
-                sessionStorage.setItem('aicriss_onboarding_required', 'false');
+                if (data.access_token) {
+                    persistJwt(data.access_token);
+                }
+                try { localStorage.setItem('aicriss_onboarding_required', 'false'); } catch (e) {}
+                try { sessionStorage.setItem('aicriss_onboarding_required', 'false'); } catch (e) {}
                 if (data.entity && data.entity.id) {
                     currentInstitutionId = data.entity.id;
-                    localStorage.setItem('aicriss_primary_inst', currentInstitutionId);
-                    sessionStorage.setItem('aicriss_primary_inst', currentInstitutionId);
+                    try { localStorage.setItem('aicriss_primary_inst', currentInstitutionId); } catch (e) {}
+                    try { sessionStorage.setItem('aicriss_primary_inst', currentInstitutionId); } catch (e) {}
                     adaptNavigationToEntityAndPermissions(data.entity.entity_type || entityCategory, currentUserRole);
                 }
                 document.getElementById('onboardingModal').classList.add('hidden');
@@ -2864,8 +2872,31 @@
             }
         }
 
+        function persistJwt(token) {
+            if (!token) return;
+            authToken = token;
+            window.__cipAuthToken = token;
+            try { sessionStorage.setItem('aicriss_jwt', token); } catch (e) {}
+            try { localStorage.setItem('aicriss_jwt', token); } catch (e) {}
+        }
+
+        function getStoredJwt() {
+            let token = authToken || window.__cipAuthToken || null;
+            if (!token) {
+                try { token = sessionStorage.getItem('aicriss_jwt'); } catch (e) {}
+            }
+            if (!token) {
+                try { token = localStorage.getItem('aicriss_jwt'); } catch (e) {}
+            }
+            if (token) {
+                authToken = token;
+                window.__cipAuthToken = token;
+            }
+            return token;
+        }
+
         async function handleLogout() {
-            const token = authToken || localStorage.getItem('aicriss_jwt') || sessionStorage.getItem('aicriss_jwt');
+            const token = getStoredJwt();
             if (token) {
                 try {
                     await fetch('/api/v1/auth/logout', {
@@ -2877,9 +2908,10 @@
                 }
             }
             authToken = null;
+            window.__cipAuthToken = null;
             ['aicriss_jwt', 'aicriss_email', 'aicriss_role', 'aicriss_onboarding_required', 'aicriss_primary_inst'].forEach(k => {
-                localStorage.removeItem(k);
-                sessionStorage.removeItem(k);
+                try { localStorage.removeItem(k); } catch (e) {}
+                try { sessionStorage.removeItem(k); } catch (e) {}
             });
             document.getElementById('roleBadge').innerText = 'Unauthenticated';
             document.getElementById('logoutBtn').classList.add('hidden');
@@ -2891,21 +2923,26 @@
         }
 
         async function establishUiSession(tokenPayload, fallbackEmail) {
-            authToken = tokenPayload.access_token;
-            const email = tokenPayload.email || fallbackEmail || 'authenticated_user';
-            const role = tokenPayload.role || 'Auditor';
+            const resolvedToken = (tokenPayload && (tokenPayload.access_token || tokenPayload.token)) || getStoredJwt();
+            if (resolvedToken) {
+                persistJwt(resolvedToken);
+            }
+            const email = (tokenPayload && tokenPayload.email) || fallbackEmail || 'authenticated_user';
+            const role = (tokenPayload && tokenPayload.role) || 'Auditor';
             currentUserRole = role;
-            const onboardingReq = Boolean(tokenPayload.onboarding_required);
-            const primaryInst = tokenPayload.primary_institution_id || '';
+            const onboardingReq = Boolean(tokenPayload && tokenPayload.onboarding_required);
+            const primaryInst = (tokenPayload && tokenPayload.primary_institution_id) || '';
 
             [localStorage, sessionStorage].forEach(store => {
-                store.setItem('aicriss_jwt', authToken);
-                store.setItem('aicriss_email', email);
-                store.setItem('aicriss_role', role);
-                store.setItem('aicriss_onboarding_required', onboardingReq ? 'true' : 'false');
-                if (primaryInst) {
-                    store.setItem('aicriss_primary_inst', primaryInst);
-                }
+                try {
+                    if (authToken) store.setItem('aicriss_jwt', authToken);
+                    store.setItem('aicriss_email', email);
+                    store.setItem('aicriss_role', role);
+                    store.setItem('aicriss_onboarding_required', onboardingReq ? 'true' : 'false');
+                    if (primaryInst) {
+                        store.setItem('aicriss_primary_inst', primaryInst);
+                    }
+                } catch (e) {}
             });
             if (primaryInst) {
                 currentInstitutionId = primaryInst;
@@ -2967,22 +3004,22 @@
         }
 
         async function ensureAuthenticatedSession() {
-            if (authToken) return authToken;
-            const cached = sessionStorage.getItem('aicriss_jwt') || localStorage.getItem('aicriss_jwt');
+            const cached = getStoredJwt();
             if (cached) {
-                authToken = cached;
-                const email = sessionStorage.getItem('aicriss_email') || localStorage.getItem('aicriss_email') || 'Session Active';
+                let email = 'Session Active';
+                try { email = sessionStorage.getItem('aicriss_email') || localStorage.getItem('aicriss_email') || 'Session Active'; } catch (e) {}
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('logoutBtn').classList.remove('hidden');
                 document.getElementById('roleBadge').innerText = `${email}`;
-                return authToken;
+                return cached;
             }
+            document.getElementById('onboardingModal').classList.add('hidden');
             document.getElementById('loginModal').classList.remove('hidden');
             return null;
         }
 
         async function authFetch(url, options = {}) {
-            const token = authToken || sessionStorage.getItem('aicriss_jwt') || localStorage.getItem('aicriss_jwt') || await ensureAuthenticatedSession();
+            const token = getStoredJwt() || await ensureAuthenticatedSession();
             const headers = Object.assign({}, options.headers || {});
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
@@ -2990,9 +3027,11 @@
             const response = await fetch(url, Object.assign({}, options, { headers }));
             if (response.status === 401) {
                 authToken = null;
-                sessionStorage.removeItem('aicriss_jwt');
-                localStorage.removeItem('aicriss_jwt');
+                window.__cipAuthToken = null;
+                try { sessionStorage.removeItem('aicriss_jwt'); } catch (e) {}
+                try { localStorage.removeItem('aicriss_jwt'); } catch (e) {}
                 document.getElementById('logoutBtn').classList.add('hidden');
+                document.getElementById('onboardingModal').classList.add('hidden');
                 document.getElementById('loginModal').classList.remove('hidden');
             }
             return response;
@@ -3808,24 +3847,23 @@
                 return true;
             }
 
-            if (window.location.hash && window.location.hash.includes('oauth_token=')) {
-                const hashParams = new URLSearchParams(window.location.hash.substring(1));
-                const token = hashParams.get('oauth_token');
-                const role = hashParams.get('role') || 'Auditor';
-                const email = hashParams.get('email') || '';
-                const onboardingReq = hashParams.get('onboarding_required') === 'true';
-                const primaryInst = hashParams.get('primary_institution_id') || '';
+            const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+            const token = hashParams.get('oauth_token') || urlParams.get('oauth_token');
+            if (token) {
+                const role = hashParams.get('role') || urlParams.get('role') || 'Auditor';
+                const email = hashParams.get('email') || urlParams.get('email') || '';
+                const onboardingReq = (hashParams.get('onboarding_required') || urlParams.get('onboarding_required')) === 'true';
+                const primaryInst = hashParams.get('primary_institution_id') || urlParams.get('primary_institution_id') || '';
+                persistJwt(token);
                 window.history.replaceState({}, document.title, window.location.pathname);
-                if (token) {
-                    await establishUiSession({
-                        access_token: token,
-                        role: role,
-                        email: email,
-                        onboarding_required: onboardingReq,
-                        primary_institution_id: primaryInst
-                    }, email);
-                    return true;
-                }
+                await establishUiSession({
+                    access_token: token,
+                    role: role,
+                    email: email,
+                    onboarding_required: onboardingReq,
+                    primary_institution_id: primaryInst
+                }, email);
+                return true;
             }
             return false;
         }
@@ -4085,9 +4123,9 @@
             const handledOAuth = await processOAuthCallbackFromUrl();
             if (handledOAuth) return;
 
-            const cachedToken = sessionStorage.getItem('aicriss_jwt') || localStorage.getItem('aicriss_jwt');
+            const cachedToken = getStoredJwt();
             if (cachedToken) {
-                authToken = cachedToken;
+                persistJwt(cachedToken);
                 try {
                     const meRes = await authFetch('/api/v1/auth/me');
                     if (meRes.ok) {
@@ -4105,6 +4143,7 @@
                     console.error(e);
                 }
             } else {
+                document.getElementById('onboardingModal').classList.add('hidden');
                 document.getElementById('loginModal').classList.remove('hidden');
             }
         });

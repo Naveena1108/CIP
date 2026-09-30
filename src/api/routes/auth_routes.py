@@ -968,7 +968,7 @@ async def google_oauth_callback(
                 "primary_institution_id": user.primary_institution_id or "",
             }
         )
-        return RedirectResponse(url=f"/dashboard/#{fragment}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url=f"/dashboard/?{fragment}#{fragment}", status_code=status.HTTP_302_FOUND)
 
     return Token(
         access_token=token_str,
@@ -1250,8 +1250,19 @@ async def complete_entity_onboarding(
         [d.strip() for d in (inst.academic_domain or "").split(",") if d.strip()]
     )
 
+    refreshed_token = create_access_token(
+        user_id=updated_user.id,
+        email=updated_user.email,
+        role=updated_user.role,
+        primary_institution_id=primary_inst_id,
+        organization_id=org_id,
+        onboarding_completed=True,
+        full_name=updated_user.full_name,
+    )
+
     return {
         "status": "ONBOARDING_COMPLETED",
+        "access_token": refreshed_token,
         "primary_institution_id": primary_inst_id,
         "organization_id": org_id,
         "user": _build_user_response(updated_user),

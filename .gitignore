@@ -1,0 +1,62 @@
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+
+# Credentials, API keys, service accounts, and private certificates
+*credentials*.json
+*service-account*.json
+*service_account*.json
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Next.js, Node, and Vercel
+node_modules/
+.next/
+out/
+.vercel/
+.vercel
+
+# Databases and Local artifacts
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+generated_reports/*.pdf

@@ -73,8 +73,8 @@ logger = logging.getLogger("ai_criss.llm")
 
 _UNSET = object()
 
-DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
-DEFAULT_OPENROUTER_MODEL = "google/gemini-3.8-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.7-flash"
+DEFAULT_OPENROUTER_MODEL = "openai/gpt-oss-120b"
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 
 OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions"

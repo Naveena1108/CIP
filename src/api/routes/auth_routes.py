@@ -494,7 +494,15 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
-    token_str = create_access_token(user.id, user.email, user.role)
+    token_str = create_access_token(
+        user.id,
+        user.email,
+        user.role,
+        primary_institution_id=user.primary_institution_id,
+        organization_id=user.organization_id,
+        onboarding_completed=bool(user.onboarding_completed),
+        full_name=user.full_name,
+    )
     onboarding_done = bool(user.onboarding_completed)
     return Token(
         access_token=token_str,
@@ -526,7 +534,15 @@ async def login_json(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
-    token_str = create_access_token(user.id, user.email, user.role)
+    token_str = create_access_token(
+        user.id,
+        user.email,
+        user.role,
+        primary_institution_id=user.primary_institution_id,
+        organization_id=user.organization_id,
+        onboarding_completed=bool(user.onboarding_completed),
+        full_name=user.full_name,
+    )
     onboarding_done = bool(user.onboarding_completed)
     return Token(
         access_token=token_str,
@@ -573,7 +589,15 @@ async def signup(
         department_or_unit=req.department_or_unit,
         onboarding_completed=False,
     )
-    token_str = create_access_token(user.id, user.email, user.role)
+    token_str = create_access_token(
+        user.id,
+        user.email,
+        user.role,
+        primary_institution_id=user.primary_institution_id,
+        organization_id=user.organization_id,
+        onboarding_completed=False,
+        full_name=user.full_name,
+    )
     return Token(
         access_token=token_str,
         token_type="bearer",
@@ -954,7 +978,15 @@ async def google_oauth_callback(
             "User account is inactive.",
         )
 
-    token_str = create_access_token(user.id, user.email, user.role)
+    token_str = create_access_token(
+        user.id,
+        user.email,
+        user.role,
+        primary_institution_id=user.primary_institution_id,
+        organization_id=user.organization_id,
+        onboarding_completed=bool(user.onboarding_completed),
+        full_name=user.full_name,
+    )
     onboarding_required = not bool(user.onboarding_completed)
 
     if _wants_html_redirect(request, format):
@@ -965,6 +997,7 @@ async def google_oauth_callback(
                 "email": user.email,
                 "user_id": user.id,
                 "onboarding_required": "true" if onboarding_required else "false",
+                "onboarding_completed": "true" if user.onboarding_completed else "false",
                 "primary_institution_id": user.primary_institution_id or "",
             }
         )
@@ -1058,7 +1091,15 @@ async def google_oauth_token_exchange(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
 
-    token_str = create_access_token(user.id, user.email, user.role)
+    token_str = create_access_token(
+        user.id,
+        user.email,
+        user.role,
+        primary_institution_id=user.primary_institution_id,
+        organization_id=user.organization_id,
+        onboarding_completed=bool(user.onboarding_completed),
+        full_name=user.full_name,
+    )
     onboarding_required = not bool(user.onboarding_completed)
 
     return Token(

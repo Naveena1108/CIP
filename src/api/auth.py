@@ -17,7 +17,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.session import get_db_session
-from src.db.repository import UserRepository
+from src.db.repository import UserRepository, InstitutionRepository, OrganizationRepository
 from src.db.models import UserModel
 
 
@@ -296,6 +296,29 @@ async def get_current_user(
         if payload.get("organization_id") and not user.organization_id:
             user.organization_id = str(payload.get("organization_id"))
         await session.flush()
+
+    if user.primary_institution_id:
+        existing_inst = await InstitutionRepository.get_by_id(session, user.primary_institution_id)
+        if existing_inst is None:
+            await InstitutionRepository.upsert(
+                session=session,
+                institution_id=user.primary_institution_id,
+                name=user.primary_institution_id,
+                owner_user_id=user.id,
+                organization_id=user.organization_id,
+                entity_category="educational_institution",
+                entity_type="institution",
+                education_entity_type="College",
+            )
+    if user.organization_id:
+        existing_org = await OrganizationRepository.get_by_id(session, user.organization_id)
+        if existing_org is None:
+            await OrganizationRepository.upsert(
+                session=session,
+                org_id=user.organization_id,
+                name=user.organization_id,
+                owner_user_id=user.id,
+            )
 
     if not user.is_active:
         raise credentials_exception

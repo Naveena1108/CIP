@@ -1,8 +1,9 @@
 import React from "react";
+import "./globals.css";
 
 export const metadata = {
-  title: "AI CRISS — Institutional Crisis Intelligence",
-  description: "Cross-Signal Institutional Risk and Early Warning System",
+  title: "CIP — Crisis Intelligence Platform",
+  description: "Cross-Signal Institutional Crisis Intelligence and Early Warning Platform",
 };
 
 export default function RootLayout({
@@ -12,7 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-slate-950 text-slate-100 antialiased">{children}</body>
+      <body className="min-h-screen bg-[#F8F7F4] text-[#252124] antialiased">
+        {children}
+      </body>
     </html>
   );
 }

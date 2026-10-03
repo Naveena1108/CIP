@@ -727,14 +727,14 @@
     <div class="w-full flex justify-center px-4 py-2 sticky top-14 z-30 pointer-events-none">
         <nav id="floatingPillNav" class="floating-glass-nav pointer-events-auto flex items-center overflow-x-auto max-w-full" aria-label="Quick Intelligence Navigation">
             <button type="button" id="float-nav-overview" onclick="navigateWorkflow('overview')" class="nav-pill active">Overview</button>
-            <button type="button" id="float-nav-investigations" onclick="navigateWorkflow('investigations')" class="nav-pill">Investigations</button>
+            <button type="button" id="float-nav-investigations" onclick="navigateWorkflow('investigations')" class="nav-pill">Investigate</button>
             <button type="button" id="float-nav-insights" onclick="navigateWorkflow('insights')" class="nav-pill">Insights</button>
-            <button type="button" id="float-nav-risks" onclick="navigateWorkflow('risks')" class="nav-pill">Risks</button>
-            <button type="button" id="float-nav-predictions" onclick="navigateWorkflow('predictions')" class="nav-pill">Predictions</button>
-            <button type="button" id="float-nav-whatif" onclick="navigateWorkflow('whatif')" class="nav-pill">What-If Analysis</button>
-            <button type="button" id="float-nav-osint" onclick="navigateWorkflow('osint')" class="nav-pill">External Intelligence</button>
+            <button type="button" id="float-nav-risks" onclick="navigateWorkflow('risks')" class="nav-pill">Risk</button>
+            <button type="button" id="float-nav-predictions" onclick="navigateWorkflow('predictions')" class="nav-pill">Forecast</button>
+            <button type="button" id="float-nav-whatif" onclick="navigateWorkflow('whatif')" class="nav-pill">What-If</button>
             <button type="button" id="float-nav-evidence" onclick="navigateWorkflow('evidence')" class="nav-pill">Evidence</button>
             <button type="button" id="float-nav-data" onclick="navigateWorkflow('data')" class="nav-pill">Data</button>
+            <button type="button" id="float-nav-osint" onclick="navigateWorkflow('osint')" class="nav-pill">External Context</button>
             <button type="button" id="float-nav-memory" onclick="navigateWorkflow('memory')" class="nav-pill">Historical Context</button>
             <button type="button" id="float-nav-profile" onclick="navigateWorkflow('profile')" class="nav-pill">Profile</button>
         </nav>
@@ -757,33 +757,32 @@
         <aside id="mainSidebar" class="cip-sidebar w-64 shrink-0 hidden lg:flex flex-col justify-between p-4 select-none">
             <div class="space-y-4">
                 <div class="px-2">
-                    <div class="text-[11px] font-mono uppercase tracking-wider cip-muted">Intelligence Workflows</div>
-                    <div id="sidebarEntityContext" class="text-xs font-semibold cip-secondary mt-0.5">Institutional Workspace</div>
+                    <div class="text-[10px] font-semibold uppercase tracking-[0.16em]" style="color: var(--cip-text-muted);">Workspace</div>
                 </div>
-                <nav class="space-y-1" aria-label="CIP Primary Navigation">
+                <nav class="space-y-1" aria-label="CIP Workspace Navigation">
                     <button type="button" id="nav-overview" data-workflow="overview" onclick="navigateWorkflow('overview')" class="cip-nav-btn active">
                         <span>Overview</span>
-                        <span id="navBadgeOverview" class="text-[11px] font-mono cip-muted">5 Qs</span>
+                        <span id="navBadgeOverview" class="text-[11px] font-mono cip-muted">Status</span>
                     </button>
                     <button type="button" id="nav-investigations" data-workflow="investigations" onclick="navigateWorkflow('investigations')" class="cip-nav-btn">
-                        <span>Investigations</span>
-                        <span id="navBadgeInvestigations" class="text-[11px] font-mono cip-muted">AI/Det</span>
+                        <span>Investigate</span>
+                        <span id="navBadgeInvestigations" class="text-[11px] font-mono cip-muted">Audit</span>
                     </button>
                     <button type="button" id="nav-insights" data-workflow="insights" onclick="navigateWorkflow('insights')" class="cip-nav-btn">
                         <span>Insights</span>
-                        <span id="navBadgeInsights" class="text-[11px] font-mono cip-muted">0</span>
+                        <span id="navBadgeInsights" class="text-[11px] font-mono cip-muted">Signals</span>
                     </button>
                     <button type="button" id="nav-risks" data-workflow="risks" onclick="navigateWorkflow('risks')" class="cip-nav-btn">
-                        <span>Risks</span>
+                        <span>Risk</span>
                         <span id="navBadgeRisks" class="text-[11px] font-mono cip-muted">Stage 1</span>
                     </button>
                     <button type="button" id="nav-predictions" data-workflow="predictions" onclick="navigateWorkflow('predictions')" class="cip-nav-btn">
-                        <span>Predictions</span>
+                        <span>Forecast</span>
                         <span id="navBadgePredictions" class="text-[11px] font-mono cip-muted">1-3Y</span>
                     </button>
                     <button type="button" id="nav-whatif" data-workflow="whatif" onclick="navigateWorkflow('whatif')" class="cip-nav-btn">
-                        <span>What-If Analysis</span>
-                        <span id="navBadgeWhatIf" class="text-[11px] font-mono cip-muted">Live</span>
+                        <span>What-If</span>
+                        <span id="navBadgeWhatIf" class="text-[11px] font-mono cip-muted">Sim</span>
                     </button>
                     <button type="button" id="nav-evidence" data-workflow="evidence" onclick="navigateWorkflow('evidence')" class="cip-nav-btn">
                         <span>Evidence</span>
@@ -793,17 +792,25 @@
                         <span id="navLabelData">Data</span>
                         <span id="navBadgeData" class="text-[11px] font-mono cip-muted">Ingest</span>
                     </button>
+                </nav>
+
+                <div class="my-3 h-px" style="background-color: var(--cip-border);"></div>
+
+                <div class="px-2">
+                    <div class="text-[10px] font-semibold uppercase tracking-[0.16em]" style="color: var(--cip-text-muted);">Context</div>
+                </div>
+                <nav class="space-y-1" aria-label="CIP Context Navigation">
+                    <button type="button" id="nav-osint" data-workflow="osint" onclick="navigateWorkflow('osint')" class="cip-nav-btn">
+                        <span>External Context</span>
+                        <span id="navBadgeOsint" class="text-[11px] font-mono cip-muted">OSINT</span>
+                    </button>
                     <button type="button" id="nav-memory" data-workflow="memory" onclick="navigateWorkflow('memory')" class="cip-nav-btn">
-                        <span>Institutional Memory</span>
-                        <span id="navBadgeMemory" class="text-[11px] font-mono cip-muted">7 Cat</span>
+                        <span>Historical Context</span>
+                        <span id="navBadgeMemory" class="text-[11px] font-mono cip-muted">Records</span>
                     </button>
                     <button type="button" id="nav-profile" data-workflow="profile" onclick="navigateWorkflow('profile')" class="cip-nav-btn">
                         <span id="navLabelProfile">Profile</span>
                         <span class="text-[11px] font-mono cip-muted">Entity</span>
-                    </button>
-                    <button type="button" id="nav-osint" data-workflow="osint" onclick="navigateWorkflow('osint')" class="cip-nav-btn">
-                        <span>External Intelligence</span>
-                        <span id="navBadgeOsint" class="text-[11px] font-mono cip-muted">Signals</span>
                     </button>
                 </nav>
             </div>
@@ -938,6 +945,90 @@
                         <span id="earlyWarningCountBadge" class="cip-badge font-mono">0 Early Warnings</span>
                     </div>
                 </div>
+
+                <!-- One UI Inspired Human-First Institutional Status Hero -->
+                <section id="cipOneUiHero" class="rounded-[28px] border p-6 sm:p-8" style="border-color: var(--cip-border); background-color: var(--cip-surface);">
+                    <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+                        <div class="max-w-2xl">
+                            <div class="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.15em]" style="color: var(--cip-text-muted);">
+                                Institutional Status
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <h2 id="oneUiStatusTitle" class="text-3xl font-semibold tracking-tight sm:text-4xl" style="color: var(--cip-text);">
+                                    Stable
+                                </h2>
+                                <span id="oneUiStatusBadge" class="rounded-full px-3 py-1 text-xs font-semibold" style="background-color: var(--cip-success-bg); color: var(--cip-success);">
+                                    Current state
+                                </span>
+                            </div>
+                            <p id="oneUiStatusSummary" class="mt-3 max-w-xl text-sm leading-6" style="color: var(--cip-text-secondary);">
+                                Institutional indicators are tracking within normal parameters. Multi-period stability verified.
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="min-w-[84px] rounded-[18px] p-3 text-center" style="background-color: var(--cip-surface-alt);">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--cip-text-muted);">Changed</div>
+                                <div id="oneUiMetricChanged" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">0</div>
+                            </div>
+                            <div class="min-w-[84px] rounded-[18px] p-3 text-center" style="background-color: var(--cip-surface-alt);">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--cip-text-muted);">Findings</div>
+                                <div id="oneUiMetricFindings" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">0</div>
+                            </div>
+                            <div class="min-w-[84px] rounded-[18px] p-3 text-center" style="background-color: var(--cip-surface-alt);">
+                                <div class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--cip-text-muted);">Evidence</div>
+                                <div id="oneUiMetricEvidence" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Risk Outlook Timeline -->
+                    <div class="mt-6 pt-5 border-t" style="border-color: var(--cip-border);">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="text-[11px] font-semibold uppercase tracking-wider" style="color: var(--cip-text-muted);">Risk Outlook (Now &rarr; 3-Year Projection)</div>
+                            <button type="button" onclick="navigateWorkflow('predictions')" class="text-xs font-semibold inline-flex items-center gap-1" style="color: var(--cip-primary);">
+                                View forecast &rarr;
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-4 gap-3">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span style="color: var(--cip-text-muted);">Now</span>
+                                    <span id="oneUiRiskNowVal" class="font-semibold font-mono">0.00</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
+                                    <div id="oneUiRiskNowBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span style="color: var(--cip-text-muted);">1Y</span>
+                                    <span id="oneUiRisk1YVal" class="font-semibold font-mono">0.00</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
+                                    <div id="oneUiRisk1YBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span style="color: var(--cip-text-muted);">2Y</span>
+                                    <span id="oneUiRisk2YVal" class="font-semibold font-mono">0.00</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
+                                    <div id="oneUiRisk2YBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span style="color: var(--cip-text-muted);">3Y</span>
+                                    <span id="oneUiRisk3YVal" class="font-semibold font-mono">0.00</span>
+                                </div>
+                                <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
+                                    <div id="oneUiRisk3YBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
                 <!-- 5 Executive Questions Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -3957,6 +4048,47 @@
                 criChart.data.datasets[0].data = [cri, Math.max(0, 1 - cri)];
                 criChart.update();
 
+                // Populate One UI Institutional Status Hero
+                const statusStr = cri > 0.7 ? 'Critical' : (cri > 0.5 ? 'Elevated' : (cri > 0.3 ? 'Watch' : 'Stable'));
+                const heroTitle = document.getElementById('oneUiStatusTitle');
+                if (heroTitle) heroTitle.innerText = statusStr;
+                const heroBadge = document.getElementById('oneUiStatusBadge');
+                if (heroBadge) {
+                    heroBadge.innerText = `Current state: ${statusStr}`;
+                    const bgMap = {
+                        'Stable': 'var(--cip-success-bg)',
+                        'Watch': 'var(--cip-warning-bg)',
+                        'Elevated': 'var(--cip-danger-bg)',
+                        'Critical': 'var(--cip-critical-bg)'
+                    };
+                    const textMap = {
+                        'Stable': 'var(--cip-success)',
+                        'Watch': 'var(--cip-warning)',
+                        'Elevated': 'var(--cip-danger)',
+                        'Critical': 'var(--cip-critical)'
+                    };
+                    heroBadge.style.backgroundColor = bgMap[statusStr] || 'var(--cip-success-bg)';
+                    heroBadge.style.color = textMap[statusStr] || 'var(--cip-success)';
+                }
+                const heroSum = document.getElementById('oneUiStatusSummary');
+                if (heroSum) {
+                    heroSum.innerText = (statusStr === 'Stable')
+                        ? 'Institutional indicators are tracking within normal parameters. Multi-period stability verified.'
+                        : 'Longitudinal shifts detected across institutional indicators. Leadership attention warranted.';
+                }
+                const mChanged = document.getElementById('oneUiMetricChanged');
+                if (mChanged) mChanged.innerText = assessment.anomalies_detected ? assessment.anomalies_detected.length : 0;
+                const mFindings = document.getElementById('oneUiMetricFindings');
+                if (mFindings) mFindings.innerText = assessment.anomalies_detected ? assessment.anomalies_detected.length : 0;
+                const mEvidence = document.getElementById('oneUiMetricEvidence');
+                if (mEvidence) mEvidence.innerText = assessment.evidence_count || (assessment.anomalies_detected ? assessment.anomalies_detected.length : 1);
+
+                const clampPct = (val) => Math.min(100, Math.max(0, Math.round((val || 0) * 100)));
+                const rNowVal = document.getElementById('oneUiRiskNowVal');
+                if (rNowVal) rNowVal.innerText = cri.toFixed(2);
+                const rNowBar = document.getElementById('oneUiRiskNowBar');
+                if (rNowBar) rNowBar.style.width = `${clampPct(cri)}%`;
+
                 // Populate Detailed Insights & Risks Workflows
                 renderMajorInsightsAndRisks(assessment, window.cachedIntelReport);
 
@@ -4242,6 +4374,32 @@
                     const fcBadge = document.getElementById('forecastStatusBadge');
                     const fcBox = document.getElementById('explainableForecastBox');
                     if (fcBadge) fcBadge.innerText = `Forecast: ${fc.status}`;
+
+                    // Update One UI Risk Outlook Timeline with deterministic forecast
+                    if (Array.isArray(fc.prediction)) {
+                        const clampPct = (val) => Math.min(100, Math.max(0, Math.round((val || 0) * 100)));
+                        const p1 = fc.prediction.find(p => p.year_offset === 1);
+                        if (p1) {
+                            const r1Val = document.getElementById('oneUiRisk1YVal');
+                            if (r1Val) r1Val.innerText = p1.projected_cri.toFixed(2);
+                            const r1Bar = document.getElementById('oneUiRisk1YBar');
+                            if (r1Bar) r1Bar.style.width = `${clampPct(p1.projected_cri)}%`;
+                        }
+                        const p2 = fc.prediction.find(p => p.year_offset === 2);
+                        if (p2) {
+                            const r2Val = document.getElementById('oneUiRisk2YVal');
+                            if (r2Val) r2Val.innerText = p2.projected_cri.toFixed(2);
+                            const r2Bar = document.getElementById('oneUiRisk2YBar');
+                            if (r2Bar) r2Bar.style.width = `${clampPct(p2.projected_cri)}%`;
+                        }
+                        const p3 = fc.prediction.find(p => p.year_offset === 3);
+                        if (p3) {
+                            const r3Val = document.getElementById('oneUiRisk3YVal');
+                            if (r3Val) r3Val.innerText = p3.projected_cri.toFixed(2);
+                            const r3Bar = document.getElementById('oneUiRisk3YBar');
+                            if (r3Bar) r3Bar.style.width = `${clampPct(p3.projected_cri)}%`;
+                        }
+                    }
 
                     if (fcBox) {
                         if (fc.status === 'INSUFFICIENT_EVIDENCE') {
@@ -5555,25 +5713,25 @@
 
     </script>
     <!-- Mobile Floating Bottom Navigation Bar -->
-    <div id="mobileBottomNav" class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-[#1A1216]/90 backdrop-blur-xl border-t border-[#E5DFDC] dark:border-[#3D2D37] px-3 py-2 flex items-center justify-around text-[10px] font-medium shadow-lg">
-        <button type="button" onclick="navigateWorkflow('overview')" class="flex flex-col items-center gap-1 text-[#7A2438] font-bold" id="mob-nav-overview">
-            <span class="text-base">📊</span>
-            <span>Overview</span>
+    <div id="mobileBottomNav" class="lg:hidden fixed bottom-3 left-3 right-3 z-40 mx-auto max-w-lg flex items-center justify-around rounded-[24px] border border-[#E5DFDC] dark:border-[#3D2D37] bg-white/90 dark:bg-[#1A1216]/90 backdrop-blur-2xl p-2 text-[10px] font-medium shadow-[0_18px_50px_rgba(37,33,36,0.14)]">
+        <button type="button" onclick="navigateWorkflow('overview')" class="flex flex-col items-center gap-1 text-[#7A2438] font-bold px-2 py-1 rounded-[16px]" id="mob-nav-overview">
+            <span class="text-sm">📊</span>
+            <span>Home</span>
         </button>
-        <button type="button" onclick="navigateWorkflow('investigations')" class="flex flex-col items-center gap-1 text-[#6F686B]" id="mob-nav-investigations">
-            <span class="text-base">🔍</span>
+        <button type="button" onclick="navigateWorkflow('investigations')" class="flex flex-col items-center gap-1 text-[#6F686B] px-2 py-1 rounded-[16px]" id="mob-nav-investigations">
+            <span class="text-sm">🔍</span>
             <span>Investigate</span>
         </button>
-        <button type="button" onclick="navigateWorkflow('risks')" class="flex flex-col items-center gap-1 text-[#6F686B]" id="mob-nav-risks">
-            <span class="text-base">⚠️</span>
-            <span>Risks</span>
+        <button type="button" onclick="navigateWorkflow('risks')" class="flex flex-col items-center gap-1 text-[#6F686B] px-2 py-1 rounded-[16px]" id="mob-nav-risks">
+            <span class="text-sm">⚠️</span>
+            <span>Risk</span>
         </button>
-        <button type="button" onclick="navigateWorkflow('predictions')" class="flex flex-col items-center gap-1 text-[#6F686B]" id="mob-nav-predictions">
-            <span class="text-base">🔮</span>
-            <span>Predict</span>
+        <button type="button" onclick="navigateWorkflow('predictions')" class="flex flex-col items-center gap-1 text-[#6F686B] px-2 py-1 rounded-[16px]" id="mob-nav-predictions">
+            <span class="text-sm">📈</span>
+            <span>Forecast</span>
         </button>
-        <button type="button" onclick="toggleMobileMoreSheet()" class="flex flex-col items-center gap-1 text-[#6F686B]" id="mob-nav-more">
-            <span class="text-base">⋯</span>
+        <button type="button" onclick="toggleMobileMoreSheet()" class="flex flex-col items-center gap-1 text-[#6F686B] px-2 py-1 rounded-[16px]" id="mob-nav-more">
+            <span class="text-sm">⋯</span>
             <span>More</span>
         </button>
     </div>

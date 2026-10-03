@@ -1518,9 +1518,19 @@ class UniversalInstitutionalIngestor:
                                 scoped_inst_id=self.institution_id or item.get("institution_id"),
                                 source_name=filename,
                             )
+                            sig_id, fp = make_signal_id(
+                                institution_id=ctx.institution_id or self.institution_id or item.get("institution_id"),
+                                domain=domain,
+                                metric_name=norm_metric,
+                                academic_year=ctx.academic_year,
+                                time_period=ctx.time_period,
+                                department=ctx.department,
+                                spreadsheet_location=f"JSON $.signals[{idx-1}]",
+                                raw_value=v_raw,
+                            )
                             signals.append(
                                 DiscoveredSignal(
-                                    signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                                    signal_id=sig_id,
                                     domain=domain,
                                     metric_name=norm_metric,
                                     metric_label=m_label,
@@ -1847,9 +1857,19 @@ class UniversalInstitutionalIngestor:
                                 provenance_refs=[f"{filename}#{page_or_section}"],
                             )
                         )
+                    sig_id, fp = make_signal_id(
+                        institution_id=ctx.institution_id or self.institution_id,
+                        domain=domain,
+                        metric_name=norm_metric,
+                        academic_year=ctx.academic_year,
+                        time_period=ctx.time_period,
+                        department=ctx.department,
+                        spreadsheet_location=page_or_section or "",
+                        raw_value=val_part,
+                    )
                     signals.append(
                         DiscoveredSignal(
-                            signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                            signal_id=sig_id,
                             domain=domain,
                             metric_name=norm_metric,
                             metric_label=label_part,
@@ -1902,9 +1922,19 @@ class UniversalInstitutionalIngestor:
                                 provenance_refs=[f"{filename}#{page_or_section}"],
                             )
                         )
+                    sig_id_b, fp_b = make_signal_id(
+                        institution_id=ctx.institution_id or self.institution_id,
+                        domain=domain,
+                        metric_name=norm_metric,
+                        academic_year=ctx.academic_year,
+                        time_period=ctx.time_period,
+                        department=ctx.department,
+                        spreadsheet_location=page_or_section or "",
+                        raw_value=val_part,
+                    )
                     signals.append(
                         DiscoveredSignal(
-                            signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                            signal_id=sig_id_b,
                             domain=domain,
                             metric_name=norm_metric,
                             metric_label=label_part,
@@ -1963,9 +1993,19 @@ class UniversalInstitutionalIngestor:
                                 provenance_refs=[f"{filename}#{page_or_section}"],
                             )
                         )
+                    sig_id_c, fp_c = make_signal_id(
+                        institution_id=ctx.institution_id or self.institution_id,
+                        domain=domain,
+                        metric_name=norm_metric,
+                        academic_year=ctx.academic_year,
+                        time_period=ctx.time_period,
+                        department=ctx.department,
+                        spreadsheet_location=page_or_section or "",
+                        raw_value=raw_val,
+                    )
                     signals.append(
                         DiscoveredSignal(
-                            signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                            signal_id=sig_id_c,
                             domain=domain,
                             metric_name=norm_metric,
                             metric_label=m.group(0).strip(),
@@ -2412,7 +2452,7 @@ class UniversalInstitutionalIngestor:
             # Check contradictory sources (different values for the exact same context + metric)
             if len(distinct_vals) >= 2:
                 contradictions_count += 1
-                group_id = f"contra_{uuid.uuid4().hex[:8]}"
+                group_id = f"contra_{hashlib.sha256(f'{key}'.encode()).hexdigest()[:10]}"
                 conflicting_entries: List[Dict[str, Any]] = []
                 for o in obs_list:
                     o.is_contradictory = True

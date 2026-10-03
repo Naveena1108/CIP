@@ -70,6 +70,7 @@ from src.engine.llm_reasoner import LLMStructuredReasoner, ExecutiveNarrativeRes
 from src.reporting.pdf_generator import generate_crisis_pdf
 from src.api.auth import get_current_user
 from src.db.models import UserModel
+from src.services.analysis_persistence import AnalysisPersistenceService, OverviewResponse
 
 router = APIRouter(prefix="/institutions", tags=["Institutions & Crisis Evaluation"])
 org_router = APIRouter(prefix="/organizations", tags=["Organization & Network Intelligence"])
@@ -290,6 +291,33 @@ async def list_institutions(
     return out
 
 
+@router.get("/{institution_id}/overview", response_model=OverviewResponse)
+async def get_institution_overview(
+    institution_id: str,
+    department: Optional[str] = Query(default=None),
+    session: AsyncSession = Depends(get_db_session),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """
+    High-Performance Overview Endpoint (CIP Phase 2 Sections 21, 36, 50).
+    Answers the 5 core executive questions:
+    1. What is happening? (Institutional status & CRI)
+    2. What changed? (Longitudinal change detection)
+    3. What needs attention? (Prioritized operational findings)
+    4. Supporting evidence? (7-field provenance links)
+    5. What could happen next? (Forward trajectory outlook)
+    Provides semantically distinct counts:
+    changed_count != findings_count != evidence_count != observations_count.
+    Reuses persisted analysis state without duplicate computation or DB writes.
+    """
+    return await AnalysisPersistenceService.get_or_compute_overview(
+        session=session,
+        institution_id=institution_id,
+        current_user=current_user,
+        department=department,
+    )
+
+
 @router.get("/{institution_id}/evaluate", response_model=CrisisAssessment)
 async def evaluate_institution(
     institution_id: str,
@@ -302,17 +330,15 @@ async def evaluate_institution(
     )
     org_id = await _resolve_org_id(session, institution_id, current_user)
 
-    engine = CrisisIntelligenceEngine()
-    assessment = engine.evaluate_institution(
+    assessment = await AnalysisPersistenceService.get_or_evaluate_assessment(
+        session=session,
         institution_id=institution_id,
-        cet_history=cet,
-        admissions_history=admissions,
-        placements_history=placements,
+        cet=cet,
+        admissions=admissions,
+        placements=placements,
         dynamic_signals=dynamic_signals,
+        org_id=org_id,
     )
-    assessment.organization_id = org_id
-
-    await AssessmentRepository.save_assessment(session, assessment)
     return assessment
 
 
@@ -332,15 +358,15 @@ async def get_institution_dossier(
     for rec in ingestion_records:
         dq_issues.extend(rec.data_quality_issues)
 
-    engine = CrisisIntelligenceEngine()
-    assessment = engine.evaluate_institution(
+    assessment = await AnalysisPersistenceService.get_or_evaluate_assessment(
+        session=session,
         institution_id=institution_id,
-        cet_history=cet,
-        admissions_history=admissions,
-        placements_history=placements,
+        cet=cet,
+        admissions=admissions,
+        placements=placements,
         dynamic_signals=dynamic_signals,
+        org_id=org_id,
     )
-    assessment.organization_id = org_id
 
     sources = ["ACID_PERSISTENCE_STORE"]
     for s in dynamic_signals:

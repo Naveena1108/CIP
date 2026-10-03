@@ -664,12 +664,45 @@ class SignalSnapshotRepository:
 
 class AssessmentRepository:
     @staticmethod
+    async def get_by_dataset_version(
+        session: AsyncSession,
+        institution_id: str,
+        dataset_version: str,
+    ) -> Optional[CrisisAssessmentModel]:
+        stmt = (
+            select(CrisisAssessmentModel)
+            .where(
+                CrisisAssessmentModel.institution_id == institution_id,
+                CrisisAssessmentModel.dataset_version == dataset_version,
+            )
+            .order_by(desc(CrisisAssessmentModel.assessment_timestamp))
+            .limit(1)
+        )
+        return (await session.execute(stmt)).scalar_one_or_none()
+
+    @staticmethod
     async def save_assessment(
         session: AsyncSession,
-        assessment: CrisisAssessment
+        assessment: CrisisAssessment,
+        dataset_version: Optional[str] = None,
+        signals_hash: Optional[str] = None,
     ) -> CrisisAssessmentModel:
+        if dataset_version:
+            existing = await AssessmentRepository.get_by_dataset_version(session, assessment.institution_id, dataset_version)
+            if existing:
+                existing.cri_score = assessment.composite_risk_index
+                existing.risk_level = assessment.risk_level
+                existing.primary_threat = assessment.primary_driving_signal
+                existing.assessment_json = assessment.model_dump_json()
+                existing.assessment_timestamp = assessment.assessment_timestamp
+                existing.signals_hash = signals_hash
+                await session.flush()
+                return existing
+
         model = CrisisAssessmentModel(
             institution_id=assessment.institution_id,
+            dataset_version=dataset_version,
+            signals_hash=signals_hash,
             assessment_timestamp=assessment.assessment_timestamp,
             cri_score=assessment.composite_risk_index,
             risk_level=assessment.risk_level,
@@ -679,6 +712,13 @@ class AssessmentRepository:
         session.add(model)
         await session.flush()
         return model
+
+    @staticmethod
+    async def delete_by_institution(session: AsyncSession, institution_id: str) -> int:
+        stmt = delete(CrisisAssessmentModel).where(CrisisAssessmentModel.institution_id == institution_id)
+        res = await session.execute(stmt)
+        await session.flush()
+        return res.rowcount or 0
 
     @staticmethod
     async def get_latest(
@@ -1047,10 +1087,11 @@ class DiscoveredSignalRepository:
         if not valid_signals:
             return 0
 
-        # Step 2: Check existing signal IDs in the database for the institution to prevent duplicate inserts
+        # Step 2: Check existing signal IDs and fingerprints in DB for the institution to prevent duplicate inserts
         import hashlib
         inst_id = valid_signals[0].context.institution_id
         existing_ids = set()
+        existing_fps = set()
         if inst_id:
             all_ids = [s.signal_id for s in valid_signals]
             for i in range(0, len(all_ids), 500):
@@ -1062,25 +1103,42 @@ class DiscoveredSignalRepository:
                 res = await session.execute(check_stmt)
                 existing_ids.update(res.scalars().all())
 
+            all_fps = []
+            for s in valid_signals:
+                fp_val = getattr(s, "fingerprint", None)
+                if not fp_val:
+                    parts = [
+                        str(s.context.institution_id or "").strip().lower(),
+                        str(s.domain or "").strip().lower(),
+                        str(s.metric_name or "").strip().lower(),
+                        str(s.context.academic_year or s.context.time_period or "").strip().lower(),
+                        str(s.context.department or "").strip().lower(),
+                        str(s.provenance.spreadsheet_location or s.provenance.page_or_section or "").strip().lower(),
+                        str(s.raw_value or "").strip().lower(),
+                    ]
+                    fp_val = hashlib.sha256(":".join(parts).encode("utf-8")).hexdigest()[:24]
+                    s.fingerprint = fp_val
+                all_fps.append(fp_val)
+
+            for i in range(0, len(all_fps), 500):
+                chunk_fps = all_fps[i : i + 500]
+                check_fp_stmt = select(DiscoveredSignalModel.fingerprint).where(
+                    DiscoveredSignalModel.institution_id == inst_id,
+                    DiscoveredSignalModel.fingerprint.in_(chunk_fps)
+                )
+                res_fp = await session.execute(check_fp_stmt)
+                existing_fps.update(res_fp.scalars().all())
+
         count = 0
         seen_in_batch = set()
+        seen_fps_in_batch = set()
         for s in valid_signals:
-            if s.signal_id in existing_ids or s.signal_id in seen_in_batch:
+            fp = s.fingerprint
+            if s.signal_id in existing_ids or (fp and fp in existing_fps) or s.signal_id in seen_in_batch or (fp and fp in seen_fps_in_batch):
                 continue
             seen_in_batch.add(s.signal_id)
-
-            fp = getattr(s, "fingerprint", None)
-            if not fp:
-                parts = [
-                    str(s.context.institution_id or "").strip().lower(),
-                    str(s.domain or "").strip().lower(),
-                    str(s.metric_name or "").strip().lower(),
-                    str(s.context.academic_year or s.context.time_period or "").strip().lower(),
-                    str(s.context.department or "").strip().lower(),
-                    str(s.provenance.spreadsheet_location or s.provenance.page_or_section or "").strip().lower(),
-                    str(s.raw_value or "").strip().lower(),
-                ]
-                fp = hashlib.sha256(":".join(parts).encode("utf-8")).hexdigest()[:24]
+            if fp:
+                seen_fps_in_batch.add(fp)
 
             model = DiscoveredSignalModel(
                 id=s.signal_id,
@@ -1155,10 +1213,29 @@ class DiscoveredSignalRepository:
 
 class IngestionRecordRepository:
     @staticmethod
+    async def get_by_content_hash(
+        session: AsyncSession,
+        institution_id: str,
+        content_hash: str,
+    ) -> Optional[IngestionRecordModel]:
+        stmt = (
+            select(IngestionRecordModel)
+            .where(
+                IngestionRecordModel.institution_id == institution_id,
+                IngestionRecordModel.content_hash == content_hash,
+            )
+            .order_by(desc(IngestionRecordModel.created_at))
+            .limit(1)
+        )
+        return (await session.execute(stmt)).scalar_one_or_none()
+
+    @staticmethod
     async def save_record(
         session: AsyncSession,
         result: UniversalIngestionResult,
         owner_user_id: Optional[str] = None,
+        content_hash: Optional[str] = None,
+        dataset_version: int = 1,
     ) -> IngestionRecordModel:
         rec = IngestionRecordModel(
             id=result.ingestion_id,
@@ -1166,6 +1243,8 @@ class IngestionRecordRepository:
             institution_id=result.institution_id,
             owner_user_id=owner_user_id,
             filename=result.filename,
+            content_hash=content_hash,
+            dataset_version=dataset_version,
             detected_format=result.detected_format,
             mime_type=result.mime_type,
             status=result.status,

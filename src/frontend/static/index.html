@@ -4458,6 +4458,17 @@
                     return;
                 }
 
+                // Fetch authoritative Overview answering the 5 core executive questions with distinct counts
+                let overviewData = null;
+                try {
+                    const ovRes = await authFetch(`/api/v1/institutions/${encodeURIComponent(targetId)}/overview`);
+                    if (ovRes && ovRes.ok) {
+                        overviewData = await ovRes.json();
+                    }
+                } catch (e) {
+                    console.warn("Failed to fetch /overview:", e);
+                }
+
                 const emptyChart = document.getElementById('temporalChartEmptyState');
                 if (emptyChart) emptyChart.classList.add('hidden');
 
@@ -4468,21 +4479,34 @@
 
                 const execBox = document.getElementById('execSummaryBox');
                 if (execBox) {
-                    const preliminarySummary = assessment.executive_summary || `Composite Risk Index evaluated at ${cri.toFixed(3)} [${assessment.risk_level}]. Primary operational concern: ${assessment.primary_driving_signal}.`;
-                    const preliminaryWhy = (assessment.anomalies_detected && assessment.anomalies_detected.length)
-                        ? assessment.anomalies_detected.map(a => `<li>${a.description}</li>`).join('')
-                        : '<li>Operational signals within historical baseline.</li>';
-                    const preliminaryMitigations = (assessment.recommended_mitigations && assessment.recommended_mitigations.length)
-                        ? assessment.recommended_mitigations.map(m => `<li>${m}</li>`).join('')
-                        : '<li>Continue active monitoring of longitudinal intake and placement metrics.</li>';
+                    const ans1 = overviewData?.answers?.what_changed || assessment.executive_summary || `Composite Risk Index evaluated at ${cri.toFixed(3)} [${assessment.risk_level}]. Primary operational concern: ${assessment.primary_driving_signal}.`;
+                    const ans2 = overviewData?.answers?.why_it_matters || (
+                        (assessment.anomalies_detected && assessment.anomalies_detected.length)
+                            ? assessment.anomalies_detected.map(a => `<li>${a.description}</li>`).join('')
+                            : '<li>Operational signals within historical baseline.</li>'
+                    );
+                    const ans3 = overviewData?.answers?.can_we_trust_it || 'Verified institutional ledger records across active departments (7-Field Provenance).';
+                    const ans4 = overviewData?.answers?.what_comes_next || 'See 1–3 year deterministic trajectory projection below.';
+                    const ans5 = overviewData?.answers?.what_to_do || (
+                        (assessment.recommended_mitigations && assessment.recommended_mitigations.length)
+                            ? assessment.recommended_mitigations.map(m => `<li>${m}</li>`).join('')
+                            : '<li>Continue active monitoring of longitudinal intake and placement metrics.</li>'
+                    );
+
+                    const formatItem = (item) => {
+                        if (!item) return '';
+                        if (typeof item === 'string' && item.trim().startsWith('<li>')) return `<ul class="list-disc list-inside space-y-0.5 mt-0.5">${item}</ul>`;
+                        return `<p class="leading-relaxed mt-0.5">${item}</p>`;
+                    };
+
                     execBox.innerHTML = `
-                        <div><strong>1. What is happening?</strong><p class="leading-relaxed mt-0.5">${preliminarySummary}</p></div>
-                        <div class="mt-2"><strong>2. Why?</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${preliminaryWhy}</ul></div>
-                        <div class="mt-2"><strong>3. Supporting Evidence (7-Field Provenance):</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5"><li>Verified institutional ledger records across active departments.</li></ul></div>
-                        <div class="mt-2"><strong>4. What could happen next?</strong><p class="mt-0.5">See 1–3 year deterministic trajectory projection below.</p></div>
-                        <div class="mt-2"><strong>5. What should leadership investigate?</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${preliminaryMitigations}</ul></div>
+                        <div><strong>1. What is happening / What changed?</strong>${formatItem(ans1)}</div>
+                        <div class="mt-2"><strong>2. Why it matters?</strong>${formatItem(ans2)}</div>
+                        <div class="mt-2"><strong>3. Can we trust it? (Supporting Evidence & Provenance):</strong>${formatItem(ans3)}</div>
+                        <div class="mt-2"><strong>4. What comes next?</strong>${formatItem(ans4)}</div>
+                        <div class="mt-2"><strong>5. What to do? (Actionable Mitigations):</strong>${formatItem(ans5)}</div>
                         <div class="mt-2 pt-1 border-t text-[10px] font-mono cip-muted" style="border-color: var(--cip-border);">
-                            System Analysis: Verified Institutional Evidence | Mode: Multi-Signal Assessment
+                            System Analysis: Verified Institutional Evidence | Mode: Multi-Signal Assessment ${overviewData?.cached ? '| State: Cached' : ''}
                         </div>
                     `;
                 }
@@ -4502,7 +4526,7 @@
                 criChart.update();
 
                 // Populate One UI Institutional Status Hero
-                const statusStr = cri > 0.7 ? 'Critical' : (cri > 0.5 ? 'Elevated' : (cri > 0.3 ? 'Watch' : 'Stable'));
+                const statusStr = overviewData?.status || (cri > 0.7 ? 'Critical' : (cri > 0.5 ? 'Elevated' : (cri > 0.3 ? 'Watch' : 'Stable')));
                 const heroTitle = document.getElementById('oneUiStatusTitle');
                 if (heroTitle) heroTitle.innerText = statusStr;
                 const heroBadge = document.getElementById('oneUiStatusBadge');
@@ -4525,16 +4549,27 @@
                 }
                 const heroSum = document.getElementById('oneUiStatusSummary');
                 if (heroSum) {
-                    heroSum.innerText = (statusStr === 'Stable')
+                    heroSum.innerText = overviewData?.summary || ((statusStr === 'Stable')
                         ? 'Institutional indicators are tracking within normal parameters. Multi-period stability verified.'
-                        : 'Longitudinal shifts detected across institutional indicators. Leadership attention warranted.';
+                        : 'Longitudinal shifts detected across institutional indicators. Leadership attention warranted.');
                 }
+                
+                // Enforce distinct count semantics: changed != findings != evidence
+                const changedVal = overviewData?.counts?.changed_count ?? (assessment.anomalies_detected ? assessment.anomalies_detected.length : 0);
+                const findingsVal = overviewData?.counts?.findings_count ?? (assessment.anomalies_detected ? assessment.anomalies_detected.length : 0);
+                const evidenceVal = overviewData?.counts?.evidence_count ?? assessment.evidence_count ?? (assessment.anomalies_detected ? assessment.anomalies_detected.length : 1);
+
                 const mChanged = document.getElementById('oneUiMetricChanged');
-                if (mChanged) mChanged.innerText = assessment.anomalies_detected ? assessment.anomalies_detected.length : 0;
+                if (mChanged) mChanged.innerText = changedVal;
                 const mFindings = document.getElementById('oneUiMetricFindings');
-                if (mFindings) mFindings.innerText = assessment.anomalies_detected ? assessment.anomalies_detected.length : 0;
+                if (mFindings) mFindings.innerText = findingsVal;
                 const mEvidence = document.getElementById('oneUiMetricEvidence');
-                if (mEvidence) mEvidence.innerText = assessment.evidence_count || (assessment.anomalies_detected ? assessment.anomalies_detected.length : 1);
+                if (mEvidence) mEvidence.innerText = evidenceVal;
+
+                if (overviewData?.counts?.observations_count !== undefined) {
+                    const navDataBadge = document.getElementById('navBadgeData');
+                    if (navDataBadge) navDataBadge.innerText = `${overviewData.counts.observations_count} Ingested`;
+                }
 
                 const clampPct = (val) => Math.min(100, Math.max(0, Math.round((val || 0) * 100)));
                 const rNowVal = document.getElementById('oneUiRiskNowVal');
@@ -4545,7 +4580,9 @@
                 const navOverviewBadge = document.getElementById('navBadgeOverview');
                 if (navOverviewBadge) navOverviewBadge.innerText = statusStr;
                 const navInvBadge = document.getElementById('navBadgeInvestigations');
-                if (navInvBadge) navInvBadge.innerText = `${assessment.anomalies_detected ? assessment.anomalies_detected.length : 0} Findings`;
+                if (navInvBadge) navInvBadge.innerText = `${findingsVal} Findings`;
+                const navInsBadge = document.getElementById('navBadgeInsights');
+                if (navInsBadge) navInsBadge.innerText = `${findingsVal} Signals`;
 
                 // Populate Detailed Insights & Risks Workflows
                 renderMajorInsightsAndRisks(assessment, window.cachedIntelReport);

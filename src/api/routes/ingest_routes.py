@@ -6,9 +6,10 @@ while preserving legacy /excel and /synthetic endpoints for backward compatibili
 """
 
 import os
+import hashlib
 import tempfile
 from typing import Any, Dict, List, Literal, Optional
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,12 +17,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.db.session import get_db_session
 from src.db.repository import (
     AccessPolicyRepository,
+    AssessmentRepository,
     InstitutionRepository,
     OrganizationRepository,
     SignalSnapshotRepository,
     DiscoveredSignalRepository,
     IngestionRecordRepository,
 )
+from src.services.analysis_persistence import AnalysisPersistenceService
 from src.adapters.excel_adapter import ExcelInstitutionalAdapter
 from src.adapters.json_adapter import JSONDictionaryAdapter
 from src.adapters.universal_ingestor import UniversalInstitutionalIngestor
@@ -91,6 +94,8 @@ async def _handle_universal_upload(
             detail="Uploaded file exceeds the 15 MB size limit.",
         )
 
+    content_hash = hashlib.sha256(content).hexdigest()
+
     target_inst_id = (
         institution_id.strip()
         if institution_id and institution_id.strip()
@@ -101,6 +106,15 @@ async def _handle_universal_upload(
         if organization_id and organization_id.strip()
         else (current_user.organization_id or None)
     )
+
+    # Check for identical duplicate file upload via content_hash idempotency
+    if target_inst_id:
+        existing_rec = await IngestionRecordRepository.get_by_content_hash(session, target_inst_id, content_hash)
+        if existing_rec:
+            try:
+                return UniversalIngestionResult.model_validate_json(existing_rec.result_json)
+            except Exception:
+                pass
 
     # Verify access if target_inst_id already exists
     if target_inst_id:
@@ -234,7 +248,11 @@ async def _handle_universal_upload(
         session,
         result=result,
         owner_user_id=current_user.id,
+        content_hash=content_hash,
     )
+
+    if final_inst_id:
+        AnalysisPersistenceService.invalidate_institution(final_inst_id)
 
     if result.status == "UNSUPPORTED_FORMAT":
         return JSONResponse(
@@ -390,6 +408,7 @@ async def add_institutional_data(
             )
 
         await SignalSnapshotRepository.save_signals(session, [sig])
+        AnalysisPersistenceService.invalidate_institution(target_inst_id)
         return JSONResponse(
             status_code=status.HTTP_201_CREATED,
             content={
@@ -413,13 +432,16 @@ async def add_institutional_data(
 @router.get("/institutions/{institution_id}/signals", response_model=List[DiscoveredSignal])
 async def list_discovered_signals(
     institution_id: str,
+    response: Response,
     domain: Optional[str] = Query(default=None),
     department: Optional[str] = Query(default=None),
     contradictory_only: bool = Query(default=False),
+    page: Optional[int] = Query(default=None, ge=1),
+    page_size: Optional[int] = Query(default=None, ge=1, le=500),
     session: AsyncSession = Depends(get_db_session),
     current_user: UserModel = Depends(get_current_user),
 ):
-    """List dynamically discovered signals and their provenance for an institution."""
+    """List dynamically discovered signals and their provenance for an institution with optional pagination."""
     inst = await InstitutionRepository.get_by_id(session, institution_id)
     if inst and not InstitutionRepository.user_can_access(inst, current_user):
         raise HTTPException(
@@ -452,6 +474,17 @@ async def list_discovered_signals(
             if (s.context.department or "").strip().upper() == d_up
             or (s.context.program or "").strip().upper() == d_up
         ]
+
+    total_count = len(signals)
+    response.headers["X-Total-Count"] = str(total_count)
+    if page is not None or page_size is not None:
+        p = page or 1
+        ps = page_size or 50
+        response.headers["X-Page"] = str(p)
+        response.headers["X-Page-Size"] = str(ps)
+        start = (p - 1) * ps
+        return signals[start : start + ps]
+
     return signals
 
 
@@ -616,6 +649,16 @@ async def delete_institution_dataset(
     deleted_signals = await DiscoveredSignalRepository.delete_by_ingestion_id(session, ingestion_id)
     # Deletion of ingestion record
     await IngestionRecordRepository.delete_by_id(session, ingestion_id)
+
+    # Invalidate cached analysis for this institution
+    AnalysisPersistenceService.invalidate_institution(institution_id)
+
+    # If no remaining signals or snapshots exist, cascade delete stale assessment
+    remaining_discovered = await DiscoveredSignalRepository.get_by_institution(session, institution_id)
+    remaining_snapshots = await SignalSnapshotRepository.get_by_institution(session, institution_id)
+    if not remaining_discovered and not remaining_snapshots:
+        await AssessmentRepository.delete_by_institution(session, institution_id)
+
     await session.commit()
 
     return {
@@ -725,6 +768,7 @@ async def ingest_excel_file(
                 owner_user_id=current_user.id if current_user.onboarding_completed else None,
             )
         await SignalSnapshotRepository.save_signals(session, all_signals)
+        AnalysisPersistenceService.invalidate_institution(inst_id)
 
         return IngestionSummary(
             institution_id=inst_id,
@@ -772,6 +816,7 @@ async def ingest_synthetic_scenario(
             owner_user_id=current_user.id if current_user.onboarding_completed else None,
         )
     await SignalSnapshotRepository.save_signals(session, all_signals)
+    AnalysisPersistenceService.invalidate_institution(req.institution_id)
 
     return IngestionSummary(
         institution_id=req.institution_id,

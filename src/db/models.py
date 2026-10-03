@@ -139,6 +139,10 @@ class SignalSnapshotModel(Base):
 
     institution: Mapped["InstitutionModel"] = relationship(back_populates="snapshots")
 
+    __table_args__ = (
+        Index("idx_snap_inst_lookup", "institution_id", "academic_year", "department", "signal_type"),
+    )
+
 
 class CrisisAssessmentModel(Base):
     __tablename__ = "crisis_assessments"
@@ -147,6 +151,8 @@ class CrisisAssessmentModel(Base):
     institution_id: Mapped[str] = mapped_column(
         String(64), ForeignKey("institutions.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    dataset_version: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    signals_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     assessment_timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -157,6 +163,11 @@ class CrisisAssessmentModel(Base):
     assessment_json: Mapped[str] = mapped_column(Text, nullable=False)
 
     institution: Mapped["InstitutionModel"] = relationship(back_populates="assessments")
+
+    __table_args__ = (
+        Index("idx_assess_inst_time", "institution_id", "assessment_timestamp"),
+        Index("idx_assess_inst_ds_ver", "institution_id", "dataset_version"),
+    )
 
 
 class UserModel(Base):
@@ -254,6 +265,7 @@ class DiscoveredSignalModel(Base):
     __table_args__ = (
         Index("idx_disc_sig_fp", "institution_id", "fingerprint"),
         Index("idx_disc_sig_ident", "institution_id", "domain", "metric_name", "academic_year", "department"),
+        Index("idx_disc_sig_inst_ingest", "institution_id", "ingestion_id"),
     )
 
 
@@ -269,6 +281,8 @@ class IngestionRecordModel(Base):
     institution_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     owner_user_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    dataset_version: Mapped[int] = mapped_column(Integer, default=1)
     detected_format: Mapped[str] = mapped_column(String(32), nullable=False)
     mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
     status: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -281,6 +295,10 @@ class IngestionRecordModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
+    )
+
+    __table_args__ = (
+        Index("idx_ingest_inst_time", "institution_id", "created_at"),
     )
 
 

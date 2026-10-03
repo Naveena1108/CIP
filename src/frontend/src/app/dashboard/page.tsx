@@ -86,8 +86,20 @@ export default function DashboardPage() {
                 return;
               }
 
+              let overviewData: any = null;
+              try {
+                const ovRes = await fetch(`/api/v1/institutions/${inst.id}/overview`, { credentials: "include" });
+                if (ovRes.ok) {
+                  overviewData = await ovRes.json();
+                }
+              } catch (e) {
+                // fallback to assessment
+              }
+
               const status: "stable" | "watch" | "elevated" | "critical" =
-                cri > 0.7 ? "critical" : cri > 0.5 ? "elevated" : cri > 0.3 ? "watch" : "stable";
+                overviewData?.status
+                  ? (overviewData.status.toLowerCase() as any)
+                  : cri > 0.7 ? "critical" : cri > 0.5 ? "elevated" : cri > 0.3 ? "watch" : "stable";
 
               const findings = (assessment.anomalies_detected || []).map((anom: any, idx: number) => ({
                 id: `finding-${idx}`,
@@ -97,18 +109,24 @@ export default function DashboardPage() {
                 evidenceCount: 1,
               }));
 
+              const changedCount = overviewData?.counts?.changed_count ?? findings.length;
+              const findingCount = overviewData?.counts?.findings_count ?? findings.length;
+              const evidenceCount = overviewData?.counts?.evidence_count ?? assessment.evidence_count ?? (findings.length || 1);
+              const statusSummary = overviewData?.summary ?? (
+                status === "stable"
+                  ? "Institutional indicators are tracking within normal parameters. Multi-period stability verified."
+                  : "Risk conditions observed across institutional indicators requiring attention."
+              );
+
               setData({
                 institutionName: inst.name || inst.id,
                 status,
-                statusSummary:
-                  status === "stable"
-                    ? "Institutional indicators are tracking within normal parameters. Multi-period stability verified."
-                    : `Risk conditions observed across institutional indicators requiring attention.`,
-                currentRisk: cri,
-                riskLabel: status.toUpperCase(),
-                changedCount: findings.length,
-                findingCount: findings.length,
-                evidenceCount: assessment.evidence_count || findings.length,
+                statusSummary,
+                currentRisk: overviewData?.current_cri ?? cri,
+                riskLabel: (overviewData?.status || status).toUpperCase(),
+                changedCount,
+                findingCount,
+                evidenceCount,
                 findings,
               });
               setTechnicalDetails(assessment);

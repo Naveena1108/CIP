@@ -43,7 +43,19 @@ def load_env_files() -> None:
 
 load_env_files()
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "aicriss-insecure-test-secret-key-change-in-prod-1234567890")
+_insecure_default_key = "aicriss-insecure-test-secret-key-change-in-prod-1234567890"
+_env_secret = (os.getenv("JWT_SECRET_KEY") or "").strip()
+
+if os.getenv("VERCEL") or os.getenv("ENVIRONMENT") == "production":
+    if not _env_secret or _env_secret == _insecure_default_key:
+        raise RuntimeError(
+            "CRITICAL SECURITY CONFIGURATION ERROR: A secure, non-default JWT_SECRET_KEY "
+            "environment variable must be configured in production/Vercel."
+        )
+    SECRET_KEY = _env_secret
+else:
+    SECRET_KEY = _env_secret or _insecure_default_key
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 8
 
@@ -97,18 +109,21 @@ class UserResponse(BaseModel):
 
 
 def get_allowed_google_origins() -> List[str]:
-    load_env_files()
     extra = os.getenv("GOOGLE_ALLOWED_ORIGINS", "")
     origins = list(DEFAULT_ALLOWED_GOOGLE_ORIGINS)
     for item in extra.split(","):
         cleaned = item.strip().rstrip("/")
         if cleaned and cleaned not in origins:
             origins.append(cleaned)
+    vercel_url = os.getenv("VERCEL_URL", "").strip()
+    if vercel_url:
+        v_origin = f"https://{vercel_url}".rstrip("/")
+        if v_origin not in origins:
+            origins.append(v_origin)
     return origins
 
 
 def get_google_oauth_config(detected_origin: str = "http://localhost:8000") -> Dict[str, Optional[str]]:
-    load_env_files()
     clean_origin = detected_origin.strip().rstrip("/")
     client_id = (os.getenv("GOOGLE_CLIENT_ID") or "").strip() or None
     client_secret = (os.getenv("GOOGLE_CLIENT_SECRET") or "").strip() or None

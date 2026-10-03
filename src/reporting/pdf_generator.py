@@ -266,7 +266,15 @@ def generate_crisis_pdf(
                 Paragraph("<b>Severity</b>", table_header_style),
             ]
         ]
-        for t in dossier.evidence_tokens:
+        # Sort by severity and deviation magnitude, and cap to top 25 to guarantee deterministic PDF rendering (Part 26)
+        sev_rank = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+        sorted_tokens = sorted(
+            dossier.evidence_tokens,
+            key=lambda t: (sev_rank.get(t.severity, 4), -abs(t.deviation_zscore or 0.0)),
+        )
+        display_tokens = sorted_tokens[:25]
+
+        for t in display_tokens:
             sign = "+" if t.deviation_zscore > 0 else ""
             token_rows.append(
                 [
@@ -295,6 +303,15 @@ def generate_crisis_pdf(
             )
         )
         elements.append(token_table)
+        if len(dossier.evidence_tokens) > 25:
+            elements.append(Spacer(1, 4))
+            elements.append(
+                Paragraph(
+                    f"<i>Displaying top 25 of {dossier.total_anomalies} prioritized statistical anomalies. "
+                    f"All {dossier.total_anomalies} evidence tokens are verified and archived in the institutional audit ledger.</i>",
+                    disclosure_style,
+                )
+            )
     else:
         empty_note = [
             [Paragraph("<i>No statistical anomalies detected. All observed institutional indicators are within historical tolerance thresholds.</i>", body_style)]

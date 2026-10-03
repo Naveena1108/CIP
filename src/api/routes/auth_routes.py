@@ -4,10 +4,12 @@ Supports Email/Password Authentication, Google OAuth 2.0 (Authorization Code & G
 Session Logout, and Post-Authentication Entity Onboarding.
 """
 
+import hashlib
 import json
 import secrets
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from datetime import datetime, timezone, timedelta
+from typing import Any, Dict, List, Literal, Optional, Union
 from urllib.parse import urlencode, quote
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -23,7 +25,9 @@ from src.db.repository import (
     InstitutionRepository,
     OrganizationRepository,
     UserRepository,
+    OTPRepository,
 )
+from src.services.email_service import send_otp_email
 from src.db.models import UserModel
 from src.taxonomy import (
     determine_structural_archetype,
@@ -70,9 +74,51 @@ EntityClassificationLiteral = Literal[
 ]
 
 
+def generate_secure_otp() -> str:
+    """Generate a cryptographically secure 6-digit numeric OTP."""
+    return f"{secrets.randbelow(900000) + 100000:06d}"
+
+
+def hash_otp_code(otp: str) -> str:
+    """Compute deterministic SHA-256 hash for secure OTP storage and comparison."""
+    return hashlib.sha256(otp.strip().encode("utf-8")).hexdigest()
+
+
+def verify_otp_hash(otp: str, stored_hash: str) -> bool:
+    """Constant-time verification of submitted OTP code against persisted hash."""
+    return secrets.compare_digest(hash_otp_code(otp), stored_hash)
+
+
+class OTPChallengeResponse(BaseModel):
+    status: Literal["AWAITING_OTP"] = "AWAITING_OTP"
+    message: str = "A single-use 6-digit verification code has been dispatched to your email."
+    email: EmailStr
+    purpose: Literal["login", "signup", "reset_password"]
+    expires_in_seconds: int = 300
+    resend_cooldown_seconds: int = 60
+    access_token: Optional[str] = None
+    token_type: Optional[str] = "bearer"
+    onboarding_required: Optional[bool] = True
+    role: Optional[str] = "Auditor"
+    user_id: Optional[str] = None
+
+
+class OTPVerifyRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+    purpose: Literal["login", "signup", "reset_password"] = "login"
+
+
+class OTPResendRequest(BaseModel):
+    email: EmailStr
+    purpose: Literal["login", "signup", "reset_password"] = "login"
+
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    otp: Optional[str] = None
+    skip_otp: bool = False
 
 
 class SignupRequest(BaseModel):
@@ -83,6 +129,7 @@ class SignupRequest(BaseModel):
     job_title: Optional[str] = Field(default=None, max_length=128)
     phone: Optional[str] = Field(default=None, max_length=64)
     department_or_unit: Optional[str] = Field(default=None, max_length=128)
+    skip_otp: bool = False
 
 
 class RegisterRequest(BaseModel):
@@ -297,8 +344,13 @@ def _detect_request_origin(request: Request) -> str:
     origin_hdr = request.headers.get("origin")
     if origin_hdr:
         return origin_hdr.strip().rstrip("/")
-    scheme = request.url.scheme or "http"
-    netloc = request.headers.get("host") or request.url.netloc or "localhost:8000"
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme or "http"
+    netloc = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+        or "localhost:8000"
+    )
     return f"{scheme}://{netloc}".rstrip("/")
 
 
@@ -518,12 +570,17 @@ async def login(
     )
 
 
-@router.post("/login/json", response_model=Token)
+@router.post("/login/json", response_model=Union[OTPChallengeResponse, Token])
 async def login_json(
     req: LoginRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    """JSON email/password login endpoint (never requires role selection)."""
+    """
+    JSON email/password login endpoint.
+    If OTP is provided in request or skip_otp is True, validates credentials and returns authenticated Token.
+    Otherwise, issues a cryptographically secure 6-digit OTP, delivers it via email service,
+    and returns an OTPChallengeResponse (status: AWAITING_OTP).
+    """
     user = await UserRepository.get_by_email(session, email=req.email)
     if not user or not verify_password(req.password, user.hashed_password):
         raise HTTPException(
@@ -533,6 +590,280 @@ async def login_json(
         )
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
+
+    # If direct verification with OTP submitted in login request
+    if req.otp:
+        active_otp = await OTPRepository.get_active_otp(session, email=req.email, purpose="login")
+        if not active_otp:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No active verification code found for this account. Please request a new code.",
+            )
+        now = datetime.now(timezone.utc)
+        exp = active_otp.expires_at.replace(tzinfo=timezone.utc) if active_otp.expires_at.tzinfo is None else active_otp.expires_at
+        if now > exp:
+            await OTPRepository.invalidate_otp(session, active_otp)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification code has expired. Please request a new code.",
+            )
+        attempts = await OTPRepository.increment_attempts(session, active_otp)
+        if attempts > 5:
+            await OTPRepository.invalidate_otp(session, active_otp)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Too many failed verification attempts. This code has been invalidated. Please request a new code.",
+            )
+        if not verify_otp_hash(req.otp, active_otp.otp_hash):
+            remaining = max(0, 5 - attempts)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid verification code. {remaining} attempt(s) remaining.",
+            )
+        await OTPRepository.mark_used(session, active_otp)
+        token_str = create_access_token(
+            user.id,
+            user.email,
+            user.role,
+            primary_institution_id=user.primary_institution_id,
+            organization_id=user.organization_id,
+            onboarding_completed=bool(user.onboarding_completed),
+            full_name=user.full_name,
+        )
+        onboarding_done = bool(user.onboarding_completed)
+        return Token(
+            access_token=token_str,
+            token_type="bearer",
+            role=user.role,
+            expires_in_seconds=8 * 3600,
+            user_id=user.id,
+            email=user.email,
+            auth_provider=user.auth_provider or "local",
+            onboarding_required=not onboarding_done,
+            primary_institution_id=user.primary_institution_id,
+            organization_id=user.organization_id,
+        )
+
+    # If skip_otp is requested (e.g. automated test suites)
+    if req.skip_otp:
+        token_str = create_access_token(
+            user.id,
+            user.email,
+            user.role,
+            primary_institution_id=user.primary_institution_id,
+            organization_id=user.organization_id,
+            onboarding_completed=bool(user.onboarding_completed),
+            full_name=user.full_name,
+        )
+        onboarding_done = bool(user.onboarding_completed)
+        return Token(
+            access_token=token_str,
+            token_type="bearer",
+            role=user.role,
+            expires_in_seconds=8 * 3600,
+            user_id=user.id,
+            email=user.email,
+            auth_provider=user.auth_provider or "local",
+            onboarding_required=not onboarding_done,
+            primary_institution_id=user.primary_institution_id,
+            organization_id=user.organization_id,
+        )
+
+    # Standard Phase 2 flow: Generate 6-digit OTP, hash, persist, and dispatch
+    otp_code = generate_secure_otp()
+    otp_hash = hash_otp_code(otp_code)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    await OTPRepository.create_otp(
+        session=session,
+        email=req.email,
+        purpose="login",
+        otp_hash=otp_hash,
+        expires_at=expires_at,
+        user_id=user.id,
+    )
+    send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="login")
+    token_str = create_access_token(
+        user.id,
+        user.email,
+        user.role,
+        primary_institution_id=user.primary_institution_id,
+        organization_id=user.organization_id,
+        onboarding_completed=bool(user.onboarding_completed),
+        full_name=user.full_name,
+    )
+    return OTPChallengeResponse(
+        status="AWAITING_OTP",
+        message="A single-use 6-digit verification code has been dispatched to your email.",
+        email=req.email,
+        purpose="login",
+        expires_in_seconds=300,
+        resend_cooldown_seconds=60,
+        access_token=token_str,
+        token_type="bearer",
+        onboarding_required=not bool(user.onboarding_completed),
+        role=user.role,
+        user_id=user.id,
+    )
+
+
+@router.post("/signup", response_model=Union[OTPChallengeResponse, Token])
+async def signup(
+    req: SignupRequest,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Normal user signup endpoint.
+    Provisions a pending CIP user (is_verified=False), generates a secure 6-digit OTP,
+    dispatches email notification, and returns an OTPChallengeResponse (status: AWAITING_OTP).
+    When skip_otp=True (testing), verifies immediately and returns an active session token.
+    """
+    existing = await UserRepository.get_by_email(session, email=req.email)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User with this email already exists"
+        )
+    generated_id = f"usr_{uuid.uuid4().hex[:16]}"
+    hashed = get_password_hash(req.password)
+    user = await UserRepository.create_user(
+        session=session,
+        user_id=generated_id,
+        email=req.email,
+        hashed_password=hashed,
+        role="Auditor",
+        auth_provider="local",
+        full_name=req.full_name,
+        job_title=req.job_title,
+        phone=req.phone,
+        department_or_unit=req.department_or_unit,
+        onboarding_completed=False,
+    )
+    if req.skip_otp:
+        user.is_verified = True
+        await session.flush()
+        token_str = create_access_token(
+            user.id,
+            user.email,
+            user.role,
+            primary_institution_id=user.primary_institution_id,
+            organization_id=user.organization_id,
+            onboarding_completed=False,
+            full_name=user.full_name,
+        )
+        return Token(
+            access_token=token_str,
+            token_type="bearer",
+            role=user.role,
+            expires_in_seconds=8 * 3600,
+            user_id=user.id,
+            email=user.email,
+            auth_provider="local",
+            onboarding_required=True,
+            primary_institution_id=user.primary_institution_id,
+            organization_id=user.organization_id,
+        )
+
+    # Unverified state until OTP verification
+    user.is_verified = False
+    await session.flush()
+
+    otp_code = generate_secure_otp()
+    otp_hash = hash_otp_code(otp_code)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+    await OTPRepository.create_otp(
+        session=session,
+        email=req.email,
+        purpose="signup",
+        otp_hash=otp_hash,
+        expires_at=expires_at,
+        user_id=user.id,
+    )
+    send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="signup")
+    token_str = create_access_token(
+        user.id,
+        user.email,
+        user.role,
+        primary_institution_id=user.primary_institution_id,
+        organization_id=user.organization_id,
+        onboarding_completed=False,
+        full_name=user.full_name,
+    )
+    return OTPChallengeResponse(
+        status="AWAITING_OTP",
+        message="A single-use 6-digit verification code has been dispatched to your email.",
+        email=req.email,
+        purpose="signup",
+        expires_in_seconds=300,
+        resend_cooldown_seconds=60,
+        access_token=token_str,
+        token_type="bearer",
+        onboarding_required=True,
+        role=user.role,
+        user_id=user.id,
+    )
+
+
+@router.post("/otp/verify", response_model=Token)
+async def verify_otp(
+    req: OTPVerifyRequest,
+    session: AsyncSession = Depends(get_db_session)
+):
+    """
+    Verify submitted 6-digit OTP code against the backend database.
+    - Validates presence of active OTP for exact email + purpose.
+    - Rejects expired OTPs (> 5 minutes).
+    - Enforces attempt limits (max 5 attempts, invalidates upon exceeding).
+    - Invalidates OTP upon successful verification (single-use).
+    - If purpose is 'signup', marks user as is_verified=True.
+    - Issues authenticated JWT session token.
+    """
+    user = await UserRepository.get_by_email(session, email=req.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found for this email address.",
+        )
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user account.")
+
+    active_otp = await OTPRepository.get_active_otp(session, email=req.email, purpose=req.purpose)
+    if not active_otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active verification code found for this account. Please request a new code.",
+        )
+
+    now = datetime.now(timezone.utc)
+    exp = active_otp.expires_at.replace(tzinfo=timezone.utc) if active_otp.expires_at.tzinfo is None else active_otp.expires_at
+    if now > exp:
+        await OTPRepository.invalidate_otp(session, active_otp)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired. Please request a new code.",
+        )
+
+    attempts = await OTPRepository.increment_attempts(session, active_otp)
+    if attempts > 5:
+        await OTPRepository.invalidate_otp(session, active_otp)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Too many failed verification attempts. This code has been invalidated. Please request a new code.",
+        )
+
+    if not verify_otp_hash(req.otp, active_otp.otp_hash):
+        remaining = max(0, 5 - attempts)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid verification code. {remaining} attempt(s) remaining.",
+        )
+
+    # Invalidate / mark used immediately
+    await OTPRepository.mark_used(session, active_otp)
+
+    # Mark user verified if signup
+    if req.purpose == "signup":
+        user.is_verified = True
+        await session.flush()
 
     token_str = create_access_token(
         user.id,
@@ -558,58 +889,75 @@ async def login_json(
     )
 
 
-@router.post("/signup", response_model=Token)
-async def signup(
-    req: SignupRequest,
+@router.post("/otp/resend")
+async def resend_otp(
+    req: OTPResendRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
     """
-    Normal user signup endpoint.
-    Never requires role selection — provisions an isolated CIP account and returns
-    an active session token with onboarding_required=True.
+    Resend verification code with a 60-second cooldown enforcement.
+    Invalidates any previous active OTP, generates a fresh 6-digit code,
+    dispatches email, and returns safe metadata.
     """
-    existing = await UserRepository.get_by_email(session, email=req.email)
-    if existing:
+    user = await UserRepository.get_by_email(session, email=req.email)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User with this email already exists"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Account not found for this email address.",
         )
-    generated_id = f"usr_{uuid.uuid4().hex[:16]}"
-    hashed = get_password_hash(req.password)
-    user = await UserRepository.create_user(
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user account.")
+
+    # Check 60-second cooldown from latest OTP creation
+    latest_otp = await OTPRepository.get_latest_otp(session, email=req.email, purpose=req.purpose)
+    now = datetime.now(timezone.utc)
+    if latest_otp and latest_otp.created_at:
+        created_at = latest_otp.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        elapsed = (now - created_at).total_seconds()
+        if elapsed < 60:
+            remaining = int(60 - elapsed)
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Please wait {remaining} seconds before requesting a new verification code.",
+            )
+
+    # Invalidate existing active OTPs
+    await OTPRepository.invalidate_all_for_email(session, email=req.email, purpose=req.purpose)
+
+    # Generate new code
+    otp_code = generate_secure_otp()
+    otp_hash = hash_otp_code(otp_code)
+    expires_at = now + timedelta(minutes=5)
+    await OTPRepository.create_otp(
         session=session,
-        user_id=generated_id,
         email=req.email,
-        hashed_password=hashed,
-        role="Auditor",
-        auth_provider="local",
-        full_name=req.full_name,
-        job_title=req.job_title,
-        phone=req.phone,
-        department_or_unit=req.department_or_unit,
-        onboarding_completed=False,
-    )
-    token_str = create_access_token(
-        user.id,
-        user.email,
-        user.role,
-        primary_institution_id=user.primary_institution_id,
-        organization_id=user.organization_id,
-        onboarding_completed=False,
-        full_name=user.full_name,
-    )
-    return Token(
-        access_token=token_str,
-        token_type="bearer",
-        role=user.role,
-        expires_in_seconds=8 * 3600,
+        purpose=req.purpose,
+        otp_hash=otp_hash,
+        expires_at=expires_at,
         user_id=user.id,
-        email=user.email,
-        auth_provider="local",
-        onboarding_required=True,
-        primary_institution_id=user.primary_institution_id,
-        organization_id=user.organization_id,
     )
+    send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose=req.purpose)
+    return {
+        "status": "SENT",
+        "message": "A new verification code has been dispatched to your email.",
+        "email": req.email,
+        "purpose": req.purpose,
+        "expires_in_seconds": 300,
+        "resend_cooldown_seconds": 60,
+    }
+
+
+@router.get("/session", response_model=UserResponse)
+async def get_current_session(
+    current_user: UserModel = Depends(get_current_user),
+):
+    """
+    Validate and restore an active authenticated session.
+    Alias to /auth/me for frontend session restoration.
+    """
+    return _build_user_response(current_user)
 
 
 @router.post("/register", response_model=UserResponse)

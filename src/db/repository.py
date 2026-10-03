@@ -4,8 +4,10 @@ Provides high-level async methods bridging Pydantic contracts and SQLAlchemy ORM
 """
 
 import json
+import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.models import (
@@ -15,6 +17,7 @@ from src.db.models import (
     SignalSnapshotModel,
     CrisisAssessmentModel,
     UserModel,
+    OTPVerificationModel,
     DiscoveredSignalModel,
     IngestionRecordModel,
     InstitutionalMemoryEntryModel,
@@ -871,6 +874,152 @@ class UserRepository:
         return user
 
 
+class OTPRepository:
+    """
+    Dedicated repository for real backend OTP generation, lookup, invalidation,
+    and verification. Backed by the otp_verifications database table.
+    """
+
+    @staticmethod
+    async def create_otp(
+        session: AsyncSession,
+        email: str,
+        purpose: str,
+        otp_hash: str,
+        expires_at: datetime,
+        user_id: Optional[str] = None,
+    ) -> OTPVerificationModel:
+        """
+        Invalidates any previous active OTPs for this email and purpose,
+        then persists a new OTP verification record.
+        """
+        now = datetime.now(timezone.utc)
+        # Invalidate previous unused OTPs for the same email & purpose
+        await OTPRepository.invalidate_all_for_email(session, email=email, purpose=purpose)
+
+        otp_id = f"otp_{uuid.uuid4().hex[:20]}"
+        record = OTPVerificationModel(
+            id=otp_id,
+            user_id=user_id,
+            email=email.strip().lower(),
+            purpose=purpose,
+            otp_hash=otp_hash,
+            attempts=0,
+            created_at=now,
+            expires_at=expires_at,
+            used_at=None,
+            invalidated_at=None,
+        )
+        session.add(record)
+        await session.flush()
+        return record
+
+    @staticmethod
+    async def get_active_otp(
+        session: AsyncSession,
+        email: str,
+        purpose: str,
+    ) -> Optional[OTPVerificationModel]:
+        """
+        Retrieves the latest active (unused, uninvalidated) OTP for the given email and purpose.
+        """
+        stmt = (
+            select(OTPVerificationModel)
+            .where(
+                OTPVerificationModel.email == email.strip().lower(),
+                OTPVerificationModel.purpose == purpose,
+                OTPVerificationModel.used_at.is_(None),
+                OTPVerificationModel.invalidated_at.is_(None),
+            )
+            .order_by(desc(OTPVerificationModel.created_at))
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_latest_otp(
+        session: AsyncSession,
+        email: str,
+        purpose: str,
+    ) -> Optional[OTPVerificationModel]:
+        """
+        Retrieves the most recently created OTP record (used to check resend cooldown).
+        """
+        stmt = (
+            select(OTPVerificationModel)
+            .where(
+                OTPVerificationModel.email == email.strip().lower(),
+                OTPVerificationModel.purpose == purpose,
+            )
+            .order_by(desc(OTPVerificationModel.created_at))
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def increment_attempts(
+        session: AsyncSession,
+        otp: OTPVerificationModel,
+    ) -> int:
+        """
+        Increments the failed attempt counter for an OTP record.
+        """
+        otp.attempts += 1
+        await session.flush()
+        return otp.attempts
+
+    @staticmethod
+    async def mark_used(
+        session: AsyncSession,
+        otp: OTPVerificationModel,
+    ) -> None:
+        """
+        Marks an OTP record as successfully used and invalidates it for further use.
+        """
+        otp.used_at = datetime.now(timezone.utc)
+        await session.flush()
+
+    @staticmethod
+    async def invalidate_otp(
+        session: AsyncSession,
+        otp: OTPVerificationModel,
+    ) -> None:
+        """
+        Invalidates a specific OTP record (e.g. on expiration, too many attempts, or resend).
+        """
+        otp.invalidated_at = datetime.now(timezone.utc)
+        await session.flush()
+
+    @staticmethod
+    async def invalidate_all_for_email(
+        session: AsyncSession,
+        email: str,
+        purpose: Optional[str] = None,
+    ) -> int:
+        """
+        Invalidates all unused OTP records for an email (and optional purpose).
+        """
+        stmt = select(OTPVerificationModel).where(
+            OTPVerificationModel.email == email.strip().lower(),
+            OTPVerificationModel.used_at.is_(None),
+            OTPVerificationModel.invalidated_at.is_(None),
+        )
+        if purpose:
+            stmt = stmt.where(OTPVerificationModel.purpose == purpose)
+
+        result = await session.execute(stmt)
+        records = result.scalars().all()
+        now = datetime.now(timezone.utc)
+        for r in records:
+            r.invalidated_at = now
+        if records:
+            await session.flush()
+        return len(records)
+
+
+
 class DiscoveredSignalRepository:
     @staticmethod
     async def save_discovered_signals(
@@ -893,8 +1042,46 @@ class DiscoveredSignalRepository:
                         row.contradiction_group_id = prev_sig.contradiction_group_id
                         row.payload_json = prev_sig.model_dump_json()
 
+        # Step 1: Use all signals (including flagged duplicates for provenance and audit)
+        valid_signals = list(signals)
+        if not valid_signals:
+            return 0
+
+        # Step 2: Check existing signal IDs in the database for the institution to prevent duplicate inserts
+        import hashlib
+        inst_id = valid_signals[0].context.institution_id
+        existing_ids = set()
+        if inst_id:
+            all_ids = [s.signal_id for s in valid_signals]
+            for i in range(0, len(all_ids), 500):
+                chunk = all_ids[i : i + 500]
+                check_stmt = select(DiscoveredSignalModel.id).where(
+                    DiscoveredSignalModel.institution_id == inst_id,
+                    DiscoveredSignalModel.id.in_(chunk)
+                )
+                res = await session.execute(check_stmt)
+                existing_ids.update(res.scalars().all())
+
         count = 0
-        for s in signals:
+        seen_in_batch = set()
+        for s in valid_signals:
+            if s.signal_id in existing_ids or s.signal_id in seen_in_batch:
+                continue
+            seen_in_batch.add(s.signal_id)
+
+            fp = getattr(s, "fingerprint", None)
+            if not fp:
+                parts = [
+                    str(s.context.institution_id or "").strip().lower(),
+                    str(s.domain or "").strip().lower(),
+                    str(s.metric_name or "").strip().lower(),
+                    str(s.context.academic_year or s.context.time_period or "").strip().lower(),
+                    str(s.context.department or "").strip().lower(),
+                    str(s.provenance.spreadsheet_location or s.provenance.page_or_section or "").strip().lower(),
+                    str(s.raw_value or "").strip().lower(),
+                ]
+                fp = hashlib.sha256(":".join(parts).encode("utf-8")).hexdigest()[:24]
+
             model = DiscoveredSignalModel(
                 id=s.signal_id,
                 ingestion_id=ingestion_id,
@@ -922,11 +1109,22 @@ class DiscoveredSignalRepository:
                 excerpt_or_reference=s.provenance.excerpt_or_reference,
                 extraction_confidence=s.provenance.extraction_confidence,
                 payload_json=s.model_dump_json(),
+                fingerprint=fp,
             )
             session.add(model)
             count += 1
+            if count % 500 == 0:
+                await session.flush()
         await session.flush()
         return count
+
+    @staticmethod
+    async def delete_by_ingestion_id(session: AsyncSession, ingestion_id: str) -> int:
+        """Safely delete all discovered signals associated with a specific ingestion dataset."""
+        stmt = delete(DiscoveredSignalModel).where(DiscoveredSignalModel.ingestion_id == ingestion_id)
+        result = await session.execute(stmt)
+        await session.flush()
+        return result.rowcount or 0
 
     @staticmethod
     async def get_by_institution(
@@ -1001,6 +1199,18 @@ class IngestionRecordRepository:
                 pass
         return out
 
+    @staticmethod
+    async def get_by_id(session: AsyncSession, ingestion_id: str) -> Optional[IngestionRecordModel]:
+        stmt = select(IngestionRecordModel).where(IngestionRecordModel.id == ingestion_id)
+        return (await session.execute(stmt)).scalar_one_or_none()
+
+    @staticmethod
+    async def delete_by_id(session: AsyncSession, ingestion_id: str) -> bool:
+        stmt = delete(IngestionRecordModel).where(IngestionRecordModel.id == ingestion_id)
+        res = await session.execute(stmt)
+        await session.flush()
+        return bool(res.rowcount and res.rowcount > 0)
+
 
 class InstitutionalMemoryRepository:
     """
@@ -1031,8 +1241,8 @@ class InstitutionalMemoryRepository:
                 academic_year=entry.academic_year,
                 statement=entry.statement,
                 confidence=entry.confidence,
-                evidence_refs_json=json.dumps(entry.evidence_refs),
-                payload_json=json.dumps(entry.payload),
+                evidence_refs_json=json.dumps(entry.evidence_refs, default=str),
+                payload_json=json.dumps(entry.payload, default=str),
                 created_by_user_id=user_id,
                 created_at=entry.created_at,
             )
@@ -1040,8 +1250,8 @@ class InstitutionalMemoryRepository:
         else:
             row.statement = entry.statement
             row.confidence = entry.confidence
-            row.evidence_refs_json = json.dumps(entry.evidence_refs)
-            row.payload_json = json.dumps(entry.payload)
+            row.evidence_refs_json = json.dumps(entry.evidence_refs, default=str)
+            row.payload_json = json.dumps(entry.payload, default=str)
         await session.flush()
         return row
 

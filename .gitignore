@@ -60,3 +60,10 @@ out/
 *.db-shm
 *.db-wal
 generated_reports/*.pdf
+
+# Scratch and Temporary Development Artifacts
+scratch*.py
+*.bak*
+scratch/
+.agents/
+project-state/

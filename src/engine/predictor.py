@@ -28,6 +28,15 @@ class TrajectoryPoint:
     confidence_band_high: float
     scenario: str  # 'STATUS_QUO' | 'WITH_INTERVENTION'
 
+    def model_dump(self, *args, **kwargs) -> Dict[str, Any]:
+        return {
+            "year_offset": self.year_offset,
+            "projected_cri": self.projected_cri,
+            "confidence_band_low": self.confidence_band_low,
+            "confidence_band_high": self.confidence_band_high,
+            "scenario": self.scenario,
+        }
+
 
 class TrajectoryPredictor:
     """

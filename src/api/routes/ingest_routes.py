@@ -526,6 +526,107 @@ async def list_ingestion_records(
     return await IngestionRecordRepository.list_by_institution(session, institution_id)
 
 
+@router.get("/institutions/{institution_id}/datasets")
+async def list_institution_datasets(
+    institution_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: UserModel = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    """List available uploaded datasets for an institution (Part 19: Dataset Management)."""
+    inst = await InstitutionRepository.get_by_id(session, institution_id)
+    if inst and not InstitutionRepository.user_can_access(inst, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: institution '{institution_id}' belongs to another user or organization.",
+        )
+    records = await IngestionRecordRepository.list_by_institution(session, institution_id)
+    datasets = []
+    for idx, r in enumerate(records):
+        fmt = getattr(r, "format_type", None) or getattr(r, "detected_format", None) or "UNKNOWN"
+        sigs = getattr(r, "total_signals_discovered", None) or getattr(r, "total_signals_ingested", None) or len(getattr(r, "discovered_signals", [])) or 0
+        doms = getattr(r, "domains_discovered", None)
+        if not doms and hasattr(r, "detected_domains") and r.detected_domains:
+            doms = list(r.detected_domains.keys())
+        st = getattr(r, "status", None) or getattr(r, "processing_status", None) or "SUCCESS"
+        datasets.append({
+            "ingestion_id": r.ingestion_id,
+            "filename": r.filename,
+            "format_type": fmt,
+            "total_signals_discovered": sigs,
+            "domains": doms or [],
+            "status": st,
+            "is_active": (idx == 0),  # Most recent is active by default
+        })
+    return datasets
+
+
+@router.post("/institutions/{institution_id}/datasets/{ingestion_id}/select")
+async def select_institution_dataset(
+    institution_id: str,
+    ingestion_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: UserModel = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Select active dataset for analysis (Part 19: Dataset Management)."""
+    inst = await InstitutionRepository.get_by_id(session, institution_id)
+    if inst and not InstitutionRepository.user_can_access(inst, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: institution '{institution_id}' belongs to another user or organization.",
+        )
+    rec = await IngestionRecordRepository.get_by_id(session, ingestion_id)
+    if not rec:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset with ID '{ingestion_id}' not found.",
+        )
+    return {
+        "status": "SELECTED",
+        "institution_id": institution_id,
+        "active_dataset_id": ingestion_id,
+        "filename": rec.filename,
+    }
+
+
+@router.delete("/institutions/{institution_id}/datasets/{ingestion_id}")
+async def delete_institution_dataset(
+    institution_id: str,
+    ingestion_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: UserModel = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Safely delete an uploaded dataset and cascade-delete its discovered signals
+    without leaving orphaned records (Part 19 & 20: Dataset Management & Isolation).
+    """
+    inst = await InstitutionRepository.get_by_id(session, institution_id)
+    if inst and not InstitutionRepository.user_can_access(inst, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Access denied: institution '{institution_id}' belongs to another user or organization.",
+        )
+    rec = await IngestionRecordRepository.get_by_id(session, ingestion_id)
+    if not rec:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Dataset with ID '{ingestion_id}' not found.",
+        )
+    filename = rec.filename
+    # Cascading deletion of signals
+    deleted_signals = await DiscoveredSignalRepository.delete_by_ingestion_id(session, ingestion_id)
+    # Deletion of ingestion record
+    await IngestionRecordRepository.delete_by_id(session, ingestion_id)
+    await session.commit()
+
+    return {
+        "status": "DELETED",
+        "institution_id": institution_id,
+        "ingestion_id": ingestion_id,
+        "filename": filename,
+        "deleted_signals_count": deleted_signals,
+    }
+
+
 @router.get("/institutions/{institution_id}/quality")
 async def get_institution_data_quality(
     institution_id: str,

@@ -14,7 +14,8 @@ Exposes authenticated, RBAC-protected, SSRF-guarded endpoints for:
 - Controlled MCP Tool Registry & Execution (`/osint/mcp/tools`, `/osint/mcp/execute`)
 """
 
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -107,6 +108,122 @@ async def trigger_osint_collection(
         "signals_count": len(result["signals"]),
         "conflicts_count": len(result["conflicts"]),
     }
+
+
+_OSINT_LAST_CHECKED: Optional[datetime] = None
+_OSINT_LAST_NEW_INFO: Optional[datetime] = None
+
+
+class OSINTRefreshRequest(BaseModel):
+    organization_id: Optional[str] = None
+    institution_id: Optional[str] = None
+    query: Optional[str] = Field(default=None, max_length=300)
+
+
+class OSINTRefreshResponse(BaseModel):
+    status: Literal["UPDATED", "NO_CHANGES", "PARTIAL_FAILURE", "FAILED"]
+    message: str
+    new_events_count: int
+    new_evidence_count: int
+    sources_checked_count: int
+    failed_sources_count: int
+    last_checked: str
+    last_new_information: Optional[str]
+    freshness_label: str
+
+
+@router.post("/refresh", response_model=OSINTRefreshResponse)
+async def refresh_osint_intelligence(
+    req: Optional[OSINTRefreshRequest] = None,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """
+    Execute real backend External Intelligence refresh (CIP Phase 2 Section 41-48).
+    - Checks configured upstream OSINT providers.
+    - Accurately tracks last_checked and last_new_information timestamps.
+    - Detects whether genuinely new events or evidence records were ingested.
+    - Isolates provider degradation and distinguishes UPDATED, NO_CHANGES, PARTIAL_FAILURE, and FAILED states.
+    - Never fabricates fake updates or fake timestamps.
+    """
+    global _OSINT_LAST_CHECKED, _OSINT_LAST_NEW_INFO
+    req_body = req or OSINTRefreshRequest()
+    eff_org = req_body.organization_id or current_user.organization_id
+    eff_inst = req_body.institution_id or current_user.primary_institution_id
+
+    # 1. Measure ledger baseline before collection
+    events_before = len(await OSINTRepository.list_events(
+        session, user=current_user, organization_id=eff_org, institution_id=eff_inst
+    ))
+    evidence_before = len(await OSINTRepository.list_evidence(session))
+
+    # 2. Execute real pipeline collection across providers
+    try:
+        result = await GLOBAL_OSINT_ORCHESTRATOR.collect_and_persist_all(
+            session=session,
+            query=req_body.query,
+            organization_id=eff_org,
+            institution_id=eff_inst,
+        )
+    except Exception as exc:
+        now_dt = datetime.now(timezone.utc)
+        _OSINT_LAST_CHECKED = now_dt
+        return OSINTRefreshResponse(
+            status="FAILED",
+            message=f"OSINT intelligence refresh failed across providers: {exc}",
+            new_events_count=0,
+            new_evidence_count=0,
+            sources_checked_count=0,
+            failed_sources_count=len(GLOBAL_OSINT_ORCHESTRATOR.providers),
+            last_checked=now_dt.isoformat(),
+            last_new_information=_OSINT_LAST_NEW_INFO.isoformat() if _OSINT_LAST_NEW_INFO else None,
+            freshness_label="Check failed",
+        )
+
+    # 3. Measure ledger after collection
+    events_after = len(await OSINTRepository.list_events(
+        session, user=current_user, organization_id=eff_org, institution_id=eff_inst
+    ))
+    evidence_after = len(await OSINTRepository.list_evidence(session))
+
+    new_events = max(0, events_after - events_before)
+    new_evidence = max(0, evidence_after - evidence_before)
+
+    # 4. Check provider health
+    health_dash = GLOBAL_OSINT_ORCHESTRATOR.get_integration_status_dashboard()
+    total_sources = len(health_dash.providers)
+    failed_sources = sum(1 for p in health_dash.providers if p.status in ("OFFLINE", "DEGRADED"))
+
+    now_dt = datetime.now(timezone.utc)
+    _OSINT_LAST_CHECKED = now_dt
+
+    if new_events > 0 or new_evidence > 0 or _OSINT_LAST_NEW_INFO is None:
+        _OSINT_LAST_NEW_INFO = now_dt
+
+    if failed_sources >= total_sources and total_sources > 0:
+        status_val = "FAILED"
+        msg = f"All {total_sources} intelligence providers failed during refresh."
+    elif failed_sources > 0:
+        status_val = "PARTIAL_FAILURE"
+        msg = f"Partial collection: {failed_sources} of {total_sources} providers reported degraded connectivity. {new_events} new events detected."
+    elif new_events > 0 or new_evidence > 0:
+        status_val = "UPDATED"
+        msg = f"External intelligence refreshed successfully. {new_events} new events and {new_evidence} evidence records captured."
+    else:
+        status_val = "NO_CHANGES"
+        msg = f"External intelligence refreshed. All {total_sources} providers active, no new crisis events detected."
+
+    return OSINTRefreshResponse(
+        status=status_val,
+        message=msg,
+        new_events_count=new_events,
+        new_evidence_count=new_evidence,
+        sources_checked_count=total_sources,
+        failed_sources_count=failed_sources,
+        last_checked=_OSINT_LAST_CHECKED.isoformat(),
+        last_new_information=_OSINT_LAST_NEW_INFO.isoformat() if _OSINT_LAST_NEW_INFO else None,
+        freshness_label="Just now",
+    )
 
 
 @router.get("/dashboard")

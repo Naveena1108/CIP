@@ -14,9 +14,25 @@ Every major finding links to available 7-field provenance:
 - date_or_context (date/context)
 """
 
+import re
 from datetime import datetime, timezone
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 from pydantic import BaseModel, Field
+
+
+def format_human_source(doc_name: Optional[str], period_str: Optional[str] = None) -> str:
+    """Format technical document names into clean, readable source references."""
+    if not doc_name:
+        return "Institutional Records" if not period_str else f"Institutional Records · {period_str}"
+    clean = doc_name
+    for ext in [".xlsx", ".xls", ".csv", ".pdf", ".docx", ".doc"]:
+        clean = clean.replace(ext, "")
+    clean = clean.replace("_", " ").strip()
+    clean = re.sub(r"\s*\(\d+\)$", "", clean)
+    clean = re.sub(r"\s+", " ", clean).strip()
+    if period_str and period_str not in clean:
+        return f"{clean} · {period_str}"
+    return clean
 
 from src.contracts import (
     CrisisAssessment,
@@ -282,15 +298,24 @@ class EvidenceAssembler:
             )
             evidence_tokens.append(token)
 
-        # Also include provenance records from dynamic_signals not already covered
+        # Also include representative provenance records from dynamic_signals (capped to prevent payload explosion)
         contradictions: List[str] = []
         if dynamic_signals:
+            seen_samples: Set[Tuple[str, str]] = set()
             for d_idx, dsig in enumerate(dynamic_signals):
                 coverage[dsig.domain] = True
-                d_prov = self.build_provenance_from_discovered_signal(dsig, d_idx)
-                provenance_records.append(d_prov)
-                if dsig.is_contradictory and d_prov.contradiction_detail:
-                    contradictions.append(d_prov.contradiction_detail)
+                d_key = (dsig.domain, dsig.metric_name)
+                is_sample = d_key not in seen_samples
+                if is_sample or dsig.is_contradictory:
+                    d_prov = self.build_provenance_from_discovered_signal(dsig, d_idx)
+                    if is_sample and len(seen_samples) < 30:
+                        provenance_records.append(d_prov)
+                        seen_samples.add(d_key)
+                    if dsig.is_contradictory:
+                        if d_prov.contradiction_detail:
+                            contradictions.append(d_prov.contradiction_detail)
+                        if d_prov not in provenance_records and len(provenance_records) < 100:
+                            provenance_records.append(d_prov)
 
         if data_quality_issues:
             for dq in data_quality_issues:
@@ -397,21 +422,109 @@ class EvidenceAssembler:
                 )
                 all_records.append(rec)
 
-        # 2. Insights from Dossier Evidence Tokens (Anomalies)
-        for idx, tok in enumerate(dossier.evidence_tokens):
-            prov_list = [tok.provenance] if tok.provenance else (all_records[:1] if all_records else [])
-            insights.append(
-                InsightWithEvidence(
-                    insight_id=f"insight_anom_{idx}",
-                    title=f"{tok.signal_name} — {tok.metric_name} ({tok.severity})",
-                    category="anomaly",
-                    severity_or_stage=tok.severity,
-                    summary=tok.narrative_fragment,
-                    academic_year=tok.academic_year,
-                    is_uncertain=False,
-                    provenance=prov_list,
-                )
+        # 2. Insights from Dossier Evidence Tokens (Aggregated Longitudinal Trends & Deduplicated Findings)
+        grouped_tokens: Dict[Tuple[str, str, Optional[str]], List[EvidenceToken]] = {}
+        for tok in dossier.evidence_tokens:
+            dept_key = None
+            if tok.provenance and tok.provenance.date_or_context and "Dept:" in tok.provenance.date_or_context:
+                dept_part = tok.provenance.date_or_context.split("Dept:")[1]
+                dept_key = dept_part.split("(")[0].strip()
+            grouped_tokens.setdefault((tok.signal_name, tok.metric_name, dept_key), []).append(tok)
+
+        for (sig_name, metric_name, dept_val), toks in grouped_tokens.items():
+            sorted_toks = sorted(toks, key=lambda t: t.academic_year or 0)
+            years = [t.academic_year for t in sorted_toks if t.academic_year]
+            worst_sev = "CRITICAL" if any(t.severity == "CRITICAL" for t in sorted_toks) else (
+                "HIGH" if any(t.severity == "HIGH" for t in sorted_toks) else "MEDIUM"
             )
+            dept_suffix = f" in {dept_val}" if dept_val else ""
+
+            # Check if multi-year trend exists (Part 5: Finding Deduplication & Aggregation)
+            if len(sorted_toks) >= 2 and len(years) >= 2:
+                first_t = sorted_toks[0]
+                last_t = sorted_toks[-1]
+                delta_val = last_t.observed_value - first_t.observed_value
+                direction = "increased" if delta_val > 0 else "decreased"
+                year_range_str = f"{years[0]}–{years[-1]}"
+                
+                title = f"{sig_name} {direction} steadily across {len(sorted_toks)} periods{dept_suffix}"
+                summary = (
+                    f"Observed sustained change across AY {year_range_str}: "
+                    f"shifted from {first_t.observed_value:.1f} to {last_t.observed_value:.1f} "
+                    f"(latest baseline: {last_t.baseline_value:.1f}, Z-score: {last_t.deviation_zscore:+.2f})."
+                )
+                why_it_matters = (
+                    f"A multi-year trend in {sig_name.lower()} indicates persistent structural operational drift "
+                    f"rather than an isolated single-year fluctuation."
+                )
+                what_to_check = (
+                    f"Review departmental resource allocation, student demand, and root causes for {metric_name.lower()}."
+                )
+                raw_doc = last_t.provenance.document if last_t.provenance else "Institutional Dataset"
+                src_str = format_human_source(raw_doc, f"AY {year_range_str}")
+                prov_subset = [t.provenance for t in sorted_toks if t.provenance] or all_records[:2]
+
+                insights.append(
+                    InsightWithEvidence(
+                        insight_id=f"insight_trend_{sig_name}_{metric_name}_{dept_val or 'inst'}",
+                        title=title,
+                        category="anomaly",
+                        severity_or_stage=worst_sev,
+                        summary=summary,
+                        department=dept_val,
+                        academic_year=years[-1],
+                        why_it_matters=why_it_matters,
+                        what_to_check=what_to_check,
+                        source=src_str,
+                        technical_details={
+                            "periods": years,
+                            "first_value": first_t.observed_value,
+                            "latest_value": last_t.observed_value,
+                            "latest_baseline": last_t.baseline_value,
+                            "latest_zscore": last_t.deviation_zscore,
+                            "all_anomalies_count": len(sorted_toks),
+                        },
+                        is_uncertain=False,
+                        provenance=prov_subset[:4],
+                    )
+                )
+            else:
+                tok = sorted_toks[0]
+                dir_word = "dropped below baseline" if tok.observed_value < tok.baseline_value else "rose above baseline"
+                title = f"{sig_name} {dir_word}{dept_suffix}"
+                summary = (
+                    f"In AY {tok.academic_year}, {sig_name} ({metric_name}) reached {tok.observed_value:.1f} "
+                    f"compared to historical baseline {tok.baseline_value:.1f} (Z-score: {tok.deviation_zscore:+.2f})."
+                )
+                why_it_matters = f"Single-period shift exceeding standard historical bounds for {sig_name.lower()}."
+                what_to_check = f"Verify recent operational changes or external shifts influencing {metric_name.lower()}."
+                raw_doc = tok.provenance.document if tok.provenance else "Institutional Dataset"
+                src_str = format_human_source(raw_doc, f"AY {tok.academic_year}")
+                prov_subset = [tok.provenance] if tok.provenance else all_records[:1]
+
+                insights.append(
+                    InsightWithEvidence(
+                        insight_id=f"insight_anom_{sig_name}_{metric_name}_{tok.academic_year}_{dept_val or 'inst'}",
+                        title=title,
+                        category="anomaly",
+                        severity_or_stage=tok.severity,
+                        summary=summary,
+                        department=dept_val,
+                        academic_year=tok.academic_year,
+                        why_it_matters=why_it_matters,
+                        what_to_check=what_to_check,
+                        source=src_str,
+                        technical_details={
+                            "academic_year": tok.academic_year,
+                            "observed": tok.observed_value,
+                            "baseline": tok.baseline_value,
+                            "zscore": tok.deviation_zscore,
+                            "severity": tok.severity,
+                        },
+                        is_uncertain=False,
+                        provenance=prov_subset,
+                    )
+                )
 
         # 3. Insights from Phase 3 Intelligence Report (Cross-Signal & Risk Progression)
         if intel_report:
@@ -423,15 +536,24 @@ class EvidenceAssembler:
                 ]
                 if not matching_provs and all_records:
                     matching_provs = all_records[:2]
+                src_str = format_human_source(matching_provs[0].document if matching_provs else None)
                 insights.append(
                     InsightWithEvidence(
                         insight_id=f"insight_cross_{idx}",
-                        title=f"Cross-Signal: {cs.primary_domain} ({cs.primary_metric})",
+                        title=f"Cross-Signal: {cs.primary_domain.title()} connected with {', '.join(cs.uninspected_missing_domains[:2]) if cs.uninspected_missing_domains else 'institutional operations'}",
                         category="cross_signal",
-                        severity_or_stage="Cross-Signal Analysis",
+                        severity_or_stage="Emerging Risk",
                         summary=f"{cs.trigger_summary} {cs.correlation_vs_causation_note}",
                         department=cs.department,
                         academic_year=None,
+                        why_it_matters="Multi-domain co-movement provides higher-confidence risk signal than isolated departmental metrics.",
+                        what_to_check="Inspect shared systemic factors linking primary domain to downstream indicators.",
+                        source=src_str,
+                        technical_details={
+                            "primary_domain": cs.primary_domain,
+                            "primary_metric": cs.primary_metric,
+                            "potential_contributing_factors": cs.potential_contributing_factors,
+                        },
                         is_uncertain=bool(cs.uninspected_missing_domains),
                         uncertainty_reason=(
                             f"Uninspected related domains: {', '.join(cs.uninspected_missing_domains[:4])}"
@@ -447,12 +569,19 @@ class EvidenceAssembler:
             insights.append(
                 InsightWithEvidence(
                     insight_id="insight_risk_ladder",
-                    title=f"Institutional Risk Stage: {stage_str.upper()}",
+                    title=f"Institutional Governance Stage: {stage_str.upper()}",
                     category="risk_progression",
                     severity_or_stage=stage_str,
                     summary=rp.stage_rationale,
+                    why_it_matters="Establishes overall institutional governance risk posture under the 5-stage progression model.",
+                    what_to_check="Review prioritized strategic interventions before risk drifts into higher escalation tiers.",
+                    source="Institutional Intelligence Pipeline",
+                    technical_details={
+                        "stage": stage_str,
+                        "rationale": rp.stage_rationale,
+                    },
                     is_uncertain=False,
-                    provenance=all_records[:4],
+                    provenance=all_records[:3],
                 )
             )
 
@@ -469,38 +598,80 @@ class EvidenceAssembler:
                     if forecast.prediction else f"Horizon {forecast.horizon}: {forecast.method_actually_used}"
                 )
             )
+            why_matter_fc = (
+                "Forecasting requires at least 2 dated historical periods; no forward speculation is fabricated."
+                if is_insuff else
+                "Autoregressive momentum projection reveals trajectory under status quo operations."
+            )
+            what_check_fc = (
+                "Upload additional historical academic periods to unlock trajectory modeling."
+                if is_insuff else
+                "Review intervention levers to counteract projected risk momentum."
+            )
             insights.append(
                 InsightWithEvidence(
                     insight_id="insight_forecast",
-                    title=f"Explainable Forecast ({forecast.status.value})",
+                    title=f"Forward Risk Outlook: {forecast.status.value}",
                     category="forecast",
                     severity_or_stage=forecast.status.value,
                     summary=summary_str,
+                    why_it_matters=why_matter_fc,
+                    what_to_check=what_check_fc,
+                    source="Autoregressive Predictor",
+                    technical_details={
+                        "horizon": forecast.horizon,
+                        "method": forecast.method_actually_used,
+                        "confidence": forecast.confidence,
+                    },
                     is_uncertain=is_insuff,
                     uncertainty_reason=forecast.insufficient_evidence_reason if is_insuff else None,
-                    provenance=all_records[:3],
+                    provenance=all_records[:2],
                 )
             )
 
         # 5. Insights for Contradictions if any
         for c_idx, c_rec in enumerate([r for r in all_records if r.is_contradictory]):
+            src_str = format_human_source(c_rec.document)
             insights.append(
                 InsightWithEvidence(
                     insight_id=f"insight_contradiction_{c_idx}",
-                    title=f"Contradictory Evidence: {c_rec.metric_name or c_rec.domain}",
+                    title=f"Source Discrepancy: {c_rec.metric_name or c_rec.domain}",
                     category="contradiction_or_quality",
                     severity_or_stage="CONTRADICTION",
                     summary=c_rec.contradiction_detail or f"Conflicting source values detected in {c_rec.document}.",
+                    why_it_matters="Data integrity issue: conflicting values across sources may distort historical baselines.",
+                    what_to_check="Reconcile source documents and verify authoritative institutional records.",
+                    source=src_str,
+                    technical_details={"document": c_rec.document, "table_cell": c_rec.table_cell_or_range},
                     is_uncertain=True,
                     uncertainty_reason="Conflicting values reported across source records.",
                     provenance=[c_rec],
                 )
             )
 
+        # Quality Filter & Prioritization (Part 32: prioritize signal over volume)
+        severity_order = {"CRITICAL": 0, "HIGH": 1, "Emerging Risk": 2, "MEDIUM": 3, "Anomaly": 4, "LOW": 5, "Observation": 6}
+        insights.sort(key=lambda x: (severity_order.get(x.severity_or_stage, 9), 0 if x.category == "risk_progression" else 1))
+        # Cap to top meaningful findings
+        filtered_insights = insights[:30]
+
+        # Canonical evidence referencing: build compact, deduplicated canonical evidence records
+        canonical_provenance: List[ProvenanceRecord] = []
+        seen_prov_ids: Set[str] = set()
+        for ins in filtered_insights:
+            for p in ins.provenance:
+                if p and p.evidence_id not in seen_prov_ids:
+                    seen_prov_ids.add(p.evidence_id)
+                    canonical_provenance.append(p)
+        for r in all_records:
+            if r.evidence_id not in seen_prov_ids and len(canonical_provenance) < 60:
+                seen_prov_ids.add(r.evidence_id)
+                canonical_provenance.append(r)
+
         return EvidenceProvenanceCatalog(
             institution_id=institution_id,
-            total_insights=len(insights),
-            total_provenance_records=len(all_records),
-            insights=insights,
-            all_provenance_records=all_records,
+            total_insights=len(filtered_insights),
+            total_provenance_records=len(canonical_provenance),
+            insights=filtered_insights,
+            all_provenance_records=canonical_provenance,
         )

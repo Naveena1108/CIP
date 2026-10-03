@@ -434,6 +434,44 @@ def extract_evidence_backed_context(
     )
 
 
+def generate_signal_fingerprint(
+    institution_id: Optional[str],
+    domain: str,
+    metric_name: str,
+    academic_year: Optional[int] = None,
+    time_period: Optional[str] = None,
+    department: Optional[str] = None,
+    spreadsheet_location: Optional[str] = None,
+    raw_value: str = "",
+) -> str:
+    parts = [
+        str(institution_id or "").strip().lower(),
+        str(domain or "").strip().lower(),
+        str(metric_name or "").strip().lower(),
+        str(academic_year or time_period or "").strip().lower(),
+        str(department or "").strip().lower(),
+        str(spreadsheet_location or "").strip().lower(),
+        str(raw_value or "").strip().lower(),
+    ]
+    return hashlib.sha256(":".join(parts).encode("utf-8")).hexdigest()[:24]
+
+
+def make_signal_id(
+    institution_id: Optional[str],
+    domain: str,
+    metric_name: str,
+    academic_year: Optional[int] = None,
+    time_period: Optional[str] = None,
+    department: Optional[str] = None,
+    spreadsheet_location: Optional[str] = None,
+    raw_value: str = "",
+) -> Tuple[str, str]:
+    fp = generate_signal_fingerprint(
+        institution_id, domain, metric_name, academic_year, time_period, department, spreadsheet_location, raw_value
+    )
+    return f"sig_{fp}", fp
+
+
 class UniversalInstitutionalIngestor:
     """
     Universal Institutional Data Ingestion Engine for CIP Phase 2.
@@ -791,10 +829,13 @@ class UniversalInstitutionalIngestor:
             sheets_parsed += 1
 
             # Check if this sheet is already a RYMEC 'DATA YYYY' block sheet and we already extracted RYMEC
-            has_rymec_block = any(
-                re.search(r"DATA\s+20\d{2}", str(c.value or ""), re.IGNORECASE)
-                for r in rows[:5]
-                for c in r[:6]
+            has_rymec_block = (
+                bool(re.search(r"DATA\s*20\d{2}", sheet_name, re.IGNORECASE))
+                or any(
+                    re.search(r"DATA\s*20\d{2}", str(c.value or ""), re.IGNORECASE)
+                    for r in rows[:10]
+                    for c in r[:10]
+                )
             )
             if discovered and has_rymec_block:
                 continue
@@ -822,6 +863,7 @@ class UniversalInstitutionalIngestor:
     ) -> Tuple[List[DiscoveredSignal], List[DataQualityIssue]]:
         signals: List[DiscoveredSignal] = []
         issues: List[DataQualityIssue] = []
+        seen_sig_ids: Set[str] = set()
 
         # Convert openpyxl cells or raw values into (row_idx_1based, col_idx_1based, coord_str, text_val)
         grid: List[List[Tuple[int, int, str, str]]] = []
@@ -913,8 +955,22 @@ class UniversalInstitutionalIngestor:
                                 provenance_refs=[v_coord],
                             )
                         )
+                    sig_id, _ = make_signal_id(
+                        institution_id=self.institution_id or ctx.institution_id,
+                        domain=domain,
+                        metric_name=norm_metric,
+                        academic_year=ctx.academic_year,
+                        time_period=ctx.time_period,
+                        department=ctx.department,
+                        spreadsheet_location=v_coord,
+                        raw_value=v_raw,
+                    )
+                    if sig_id in seen_sig_ids:
+                        continue
+                    seen_sig_ids.add(sig_id)
+
                     sig = DiscoveredSignal(
-                        signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                        signal_id=sig_id,
                         domain=domain,
                         metric_name=norm_metric,
                         metric_label=m_label,
@@ -953,9 +1009,23 @@ class UniversalInstitutionalIngestor:
                             scoped_inst_id=self.institution_id,
                             source_name=filename,
                         )
+                        sig_id, _ = make_signal_id(
+                            institution_id=self.institution_id or ctx.institution_id,
+                            domain=domain,
+                            metric_name=norm_metric,
+                            academic_year=ctx.academic_year,
+                            time_period=ctx.time_period,
+                            department=ctx.department,
+                            spreadsheet_location=v_cell[2],
+                            raw_value=v_cell[3],
+                        )
+                        if sig_id in seen_sig_ids:
+                            continue
+                        seen_sig_ids.add(sig_id)
+
                         signals.append(
                             DiscoveredSignal(
-                                signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                                signal_id=sig_id,
                                 domain=domain,
                                 metric_name=norm_metric,
                                 metric_label=k_cell[3],
@@ -1023,9 +1093,23 @@ class UniversalInstitutionalIngestor:
                                 provenance_refs=[coord],
                             )
                         )
+                    sig_id, _ = make_signal_id(
+                        institution_id=self.institution_id or ctx.institution_id,
+                        domain=domain,
+                        metric_name=norm_metric,
+                        academic_year=ctx.academic_year,
+                        time_period=ctx.time_period,
+                        department=ctx.department,
+                        spreadsheet_location=coord,
+                        raw_value=raw_val,
+                    )
+                    if sig_id in seen_sig_ids:
+                        continue
+                    seen_sig_ids.add(sig_id)
+
                     signals.append(
                         DiscoveredSignal(
-                            signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                            signal_id=sig_id,
                             domain=domain,
                             metric_name=norm_metric,
                             metric_label=col_header,
@@ -1931,9 +2015,20 @@ class UniversalInstitutionalIngestor:
                 ("admitted_students", "Admitted Students", float(admitted_cnt), "count", "higher_is_better"),
                 ("vacancy_rate", "Seat Vacancy Rate", float(adm.vacancy_rate), "ratio", "lower_is_better"),
             ]:
+                loc_str = f"DATA {adm.academic_year}!{adm.department}"
+                sig_id, _ = make_signal_id(
+                    institution_id=adm.institution_id,
+                    domain="admissions",
+                    metric_name=m_name,
+                    academic_year=adm.academic_year,
+                    time_period=str(adm.academic_year),
+                    department=adm.department,
+                    spreadsheet_location=loc_str,
+                    raw_value=str(val),
+                )
                 out.append(
                     DiscoveredSignal(
-                        signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                        signal_id=sig_id,
                         domain="admissions",
                         metric_name=m_name,
                         metric_label=m_label,
@@ -1948,7 +2043,7 @@ class UniversalInstitutionalIngestor:
                             document=filename,
                             format_type=fmt,
                             page_or_section=f"AY {adm.academic_year} Admissions",
-                            spreadsheet_location=f"DATA {adm.academic_year}!{adm.department}",
+                            spreadsheet_location=loc_str,
                             excerpt_or_reference=f"{adm.department} ({adm.academic_year}): Intake={adm.sanctioned_intake}, Admitted={admitted_cnt}, Vacancy={adm.vacancy_rate:.2%}",
                             extraction_confidence=0.98,
                         ),
@@ -1969,9 +2064,20 @@ class UniversalInstitutionalIngestor:
                     "academic_year": f"Graduation year '{plc.graduation_year}'",
                 },
             )
+            plc_loc = f"DATA {plc.graduation_year}!{plc.department}"
+            plc_sig_id, _ = make_signal_id(
+                institution_id=plc.institution_id,
+                domain="placements",
+                metric_name="placement_percentage",
+                academic_year=plc.graduation_year,
+                time_period=str(plc.graduation_year),
+                department=plc.department,
+                spreadsheet_location=plc_loc,
+                raw_value=f"{plc.placement_percentage}%",
+            )
             out.append(
                 DiscoveredSignal(
-                    signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                    signal_id=plc_sig_id,
                     domain="placements",
                     metric_name="placement_percentage",
                     metric_label="Placement Percentage",
@@ -1986,7 +2092,7 @@ class UniversalInstitutionalIngestor:
                         document=filename,
                         format_type=fmt,
                         page_or_section=f"AY {plc.graduation_year} Placements",
-                        spreadsheet_location=f"DATA {plc.graduation_year}!{plc.department}",
+                        spreadsheet_location=plc_loc,
                         excerpt_or_reference=f"{plc.department} ({plc.graduation_year}): Placed={plc.placed_students}/{plc.eligible_students} ({plc.placement_percentage}%)",
                         extraction_confidence=0.98,
                     ),
@@ -2007,9 +2113,20 @@ class UniversalInstitutionalIngestor:
                     "academic_year": f"Year block '{rnk.academic_year}'",
                 },
             )
+            rnk_loc = f"DATA {rnk.academic_year}!{rnk.department}"
+            rnk_sig_id, _ = make_signal_id(
+                institution_id=rnk.institution_id,
+                domain="ranking",
+                metric_name="closing_rank",
+                academic_year=rnk.academic_year,
+                time_period=str(rnk.academic_year),
+                department=rnk.department,
+                spreadsheet_location=rnk_loc,
+                raw_value=str(rnk.closing_rank),
+            )
             out.append(
                 DiscoveredSignal(
-                    signal_id=f"sig_{uuid.uuid4().hex[:10]}",
+                    signal_id=rnk_sig_id,
                     domain="ranking",
                     metric_name="closing_rank",
                     metric_label="CET Closing Rank",
@@ -2024,7 +2141,7 @@ class UniversalInstitutionalIngestor:
                         document=filename,
                         format_type=fmt,
                         page_or_section=f"AY {rnk.academic_year} CET Ranking",
-                        spreadsheet_location=f"DATA {rnk.academic_year}!{rnk.department}",
+                        spreadsheet_location=rnk_loc,
                         excerpt_or_reference=f"{rnk.department} ({rnk.academic_year}): Opening={rnk.opening_rank}, Closing={rnk.closing_rank}",
                         extraction_confidence=0.98,
                     ),
@@ -2269,7 +2386,7 @@ class UniversalInstitutionalIngestor:
             # Check duplicates (same value repeated >= 2 times)
             for val_repr, dup_list in distinct_vals.items():
                 if len(dup_list) >= 2:
-                    for dup_sig in dup_list[1:]:
+                    for dup_sig in dup_list:
                         if dup_sig.signal_id in new_signal_ids:
                             dup_sig.is_duplicate = True
                             duplicates_count += 1

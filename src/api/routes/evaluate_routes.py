@@ -4,7 +4,7 @@ Exposes crisis scoring, evidence dossier assembly, and autoregressive forecastin
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -100,25 +100,41 @@ class InstitutionOut(BaseModel):
     owner_user_id: Optional[str] = None
 
 
-class SimulateRequest(BaseModel):
-    years_forward: int = Field(default=3, ge=1, le=5)
-    intervention_effects: Dict[str, float] = Field(
-        default_factory=lambda: {"placement_boost": 5.0, "vacancy_rate_reduction": 0.08}
-    )
+class RiskTrendPoint(BaseModel):
+    academic_year: int
+    period_label: str
+    composite_risk_index: float
+    risk_level: str
+    primary_threat: str
+    admissions_vacancy_rate: Optional[float] = None
+    placement_percentage: Optional[float] = None
+    anomalies_count: int = 0
 
 
-class SimulationResponse(BaseModel):
+class RiskTrendResponse(BaseModel):
     institution_id: str
-    analysis_type: str = "What-If Analysis"
+    status: Literal["SUCCESS", "INSUFFICIENT_DATA", "FAILED"]
+    message: str
+    distinct_periods: int
+    trend_direction: Literal["WORSENING", "IMPROVING", "STABLE", "INSUFFICIENT_DATA"]
+    historical_points: List[RiskTrendPoint] = Field(default_factory=list)
+    projected_trajectory: List[TrajectoryPoint] = Field(default_factory=list)
+    human_summary: str
+
+
+class PredictionResponse(BaseModel):
+    institution_id: str
+    status: Literal["SUCCESS", "INSUFFICIENT_EVIDENCE", "FAILED"]
+    headline: str
+    summary: str
+    why_it_matters: str
+    what_to_check: str
+    method_used: str
+    confidence: float
+    horizon_years: int
     current_cri: float
-    status_quo_trajectory: List[TrajectoryPoint]
-    intervention_trajectory: List[TrajectoryPoint]
-    risk_reduction_achieved: float
-    baseline: Optional[WhatIfBaselineSummary] = None
-    intervention: Optional[WhatIfInterventionSpec] = None
-    projected_trajectory: Optional[List[TrajectoryPoint]] = None
-    estimated_risk_change: Optional[WhatIfRiskDelta] = None
-    reason_for_change: Optional[str] = None
+    projections: List[TrajectoryPoint] = Field(default_factory=list)
+    historical_periods_used: List[int] = Field(default_factory=list)
 
 
 
@@ -386,14 +402,195 @@ def _compute_institutional_slopes(
     }
 
 
-@router.post("/{institution_id}/simulate", response_model=SimulationResponse)
-async def simulate_trajectory(
+# Caches to prevent duplicate processing & repeated clicks (Part 16 & 29: Caching & Idempotency)
+_RISK_TREND_CACHE: Dict[str, Dict[str, Any]] = {}
+_PREDICTION_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+@router.post("/{institution_id}/generate-risk-trend", response_model=RiskTrendResponse)
+@router.get("/{institution_id}/risk-trend", response_model=RiskTrendResponse)
+async def generate_or_get_risk_trend(
     institution_id: str,
-    req: SimulateRequest,
     session: AsyncSession = Depends(get_db_session),
-    current_user: UserModel = Depends(get_current_user)
+    current_user: UserModel = Depends(get_current_user),
 ):
+    """
+    Generate or retrieve empirical risk trend across historical periods (Part 24: Risk Trend).
+    - Validates dataset depth (requires >= 2 distinct historical periods).
+    - Aggregates period-by-period CRI points and component metrics.
+    - Projects 3-year autoregressive forward trajectory.
+    - Caches results for fast, idempotent responses.
+    """
+    cet, admissions, placements, dynamic_signals = await _load_signals_allow_sparse(
+        session, institution_id, current_user
+    )
+
+    # Collect distinct academic years
+    years_set = set()
+    for c in cet:
+        if c.academic_year:
+            years_set.add(c.academic_year)
+    for a in admissions:
+        if a.academic_year:
+            years_set.add(a.academic_year)
+    for p in placements:
+        if p.graduation_year:
+            years_set.add(p.graduation_year)
+    for d in dynamic_signals:
+        if d.context and d.context.academic_year:
+            years_set.add(d.context.academic_year)
+
+    distinct_years = sorted(list(years_set))
+    num_periods = len(distinct_years)
+
+    # Safe validation against insufficient data (never fabricate trend data)
+    if num_periods < 2:
+        return RiskTrendResponse(
+            institution_id=institution_id,
+            status="INSUFFICIENT_DATA",
+            message=f"Generating a risk trend requires at least 2 dated historical periods; found {num_periods} period(s).",
+            distinct_periods=num_periods,
+            trend_direction="INSUFFICIENT_DATA",
+            historical_points=[],
+            projected_trajectory=[],
+            human_summary="Insufficient historical data to calculate an empirical risk trend. Please upload at least 2 academic years of records.",
+        )
+
+    # Check cache if signals have not changed
+    cache_key = f"{institution_id}_{len(cet)}_{len(admissions)}_{len(placements)}_{len(dynamic_signals)}"
+    if cache_key in _RISK_TREND_CACHE:
+        return RiskTrendResponse(**_RISK_TREND_CACHE[cache_key])
+
+    engine = CrisisIntelligenceEngine()
+    predictor = TrajectoryPredictor()
+    historical_points: List[RiskTrendPoint] = []
+
+    # Calculate period-by-period points
+    for yr in distinct_years:
+        sub_cet = [c for c in cet if c.academic_year == yr]
+        sub_adm = [a for a in admissions if a.academic_year == yr]
+        sub_plc = [p for p in placements if p.graduation_year == yr]
+        sub_dyn = [d for d in dynamic_signals if d.context and d.context.academic_year == yr]
+
+        period_eval = engine.evaluate_institution(
+            institution_id=institution_id,
+            cet_history=sub_cet,
+            admissions_history=sub_adm,
+            placements_history=sub_plc,
+            dynamic_signals=sub_dyn,
+        )
+
+        avg_vac = (sum(a.vacancy_rate for a in sub_adm) / len(sub_adm)) if sub_adm else None
+        avg_plc = (sum(p.placement_percentage for p in sub_plc) / len(sub_plc)) if sub_plc else None
+
+        historical_points.append(
+            RiskTrendPoint(
+                academic_year=yr,
+                period_label=f"AY {yr}",
+                composite_risk_index=round(period_eval.composite_risk_index, 3),
+                risk_level=period_eval.risk_level,
+                primary_threat=period_eval.primary_driving_signal,
+                admissions_vacancy_rate=round(avg_vac, 4) if avg_vac is not None else None,
+                placement_percentage=round(avg_plc, 2) if avg_plc is not None else None,
+                anomalies_count=len(period_eval.anomalies_detected),
+            )
+        )
+
+    # Overall direction
+    first_cri = historical_points[0].composite_risk_index
+    latest_cri = historical_points[-1].composite_risk_index
+    cri_delta = round(latest_cri - first_cri, 3)
+
+    if cri_delta > 0.03:
+        direction = "WORSENING"
+        trend_text = f"increased by {cri_delta:+.3f} (worsening risk posture)"
+    elif cri_delta < -0.03:
+        direction = "IMPROVING"
+        trend_text = f"decreased by {abs(cri_delta):.3f} (improving stability)"
+    else:
+        direction = "STABLE"
+        trend_text = "remained largely stable within normal bounds"
+
+    # Forward projections
+    dept_features = extract_institutional_features(cet, admissions, placements)
+    slopes = _compute_institutional_slopes(dept_features, admissions)
+    trajectory = predictor.predict_trajectory(
+        current_cri=latest_cri,
+        feature_slopes=slopes,
+        years_forward=3,
+    )
+
+    year_range_str = f"AY {distinct_years[0]} to AY {distinct_years[-1]}"
+    human_summary = (
+        f"Over the {num_periods}-period timeline ({year_range_str}), institutional risk {trend_text}, "
+        f"moving from CRI {first_cri:.3f} to {latest_cri:.3f}. Primary threat driver: {historical_points[-1].primary_threat}."
+    )
+
+    resp_dict = {
+        "institution_id": institution_id,
+        "status": "SUCCESS",
+        "message": f"Successfully generated risk trend across {num_periods} historical periods.",
+        "distinct_periods": num_periods,
+        "trend_direction": direction,
+        "historical_points": [(p.model_dump() if hasattr(p, "model_dump") else p) for p in historical_points],
+        "projected_trajectory": [(t.model_dump() if hasattr(t, "model_dump") else t) for t in trajectory],
+        "human_summary": human_summary,
+    }
+    _RISK_TREND_CACHE[cache_key] = resp_dict
+    return RiskTrendResponse(**resp_dict)
+
+
+@router.post("/{institution_id}/predict", response_model=PredictionResponse)
+@router.get("/{institution_id}/prediction", response_model=PredictionResponse)
+async def generate_or_get_prediction(
+    institution_id: str,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """
+    Generate or retrieve 3-year autoregressive forward risk prediction (Part 25: Predictions).
+    - Requires >= 2 historical periods; never fabricates forward predictions from insufficient history.
+    - Returns human-first headline, summary, why it matters, and what to check.
+    - Caches results for fast, idempotent responses.
+    """
     cet, admissions, placements, dynamic_signals = await _load_institutional_signals(session, institution_id, current_user)
+
+    years_set = set()
+    for c in cet:
+        if c.academic_year:
+            years_set.add(c.academic_year)
+    for a in admissions:
+        if a.academic_year:
+            years_set.add(a.academic_year)
+    for p in placements:
+        if p.graduation_year:
+            years_set.add(p.graduation_year)
+    for d in dynamic_signals:
+        if d.context and d.context.academic_year:
+            years_set.add(d.context.academic_year)
+
+    distinct_years = sorted(list(years_set))
+    num_periods = len(distinct_years)
+
+    if num_periods < 2:
+        return PredictionResponse(
+            institution_id=institution_id,
+            status="INSUFFICIENT_EVIDENCE",
+            headline="Insufficient historical data for forward prediction",
+            summary="CIP requires at least 2 distinct historical periods to compute trend momentum without fabricating assumptions.",
+            why_it_matters="Forward projection without historical slope produces arbitrary mathematical speculation.",
+            what_to_check="Upload institutional data covering at least two consecutive academic years to unlock trajectory modeling.",
+            method_used="Autoregressive Trajectory Model",
+            confidence=0.0,
+            horizon_years=3,
+            current_cri=0.0,
+            projections=[],
+            historical_periods_used=distinct_years,
+        )
+
+    cache_key = f"pred_{institution_id}_{len(cet)}_{len(admissions)}_{len(placements)}_{len(dynamic_signals)}"
+    if cache_key in _PREDICTION_CACHE:
+        return PredictionResponse(**_PREDICTION_CACHE[cache_key])
 
     engine = CrisisIntelligenceEngine()
     assessment = engine.evaluate_institution(
@@ -408,88 +605,100 @@ async def simulate_trajectory(
     predictor = TrajectoryPredictor()
     slopes = _compute_institutional_slopes(dept_features, admissions)
 
-    sq = predictor.predict_trajectory(
-        current_cri=assessment.composite_risk_index,
+    current_cri = round(assessment.composite_risk_index, 3)
+    trajectory = predictor.predict_trajectory(
+        current_cri=current_cri,
         feature_slopes=slopes,
-        years_forward=req.years_forward
+        years_forward=3,
     )
-    iv = predictor.simulate_intervention(
-        current_cri=assessment.composite_risk_index,
-        feature_slopes=slopes,
-        intervention_effects=req.intervention_effects,
-        years_forward=req.years_forward
-    )
+    y3_cri = trajectory[-1].projected_cri if trajectory else current_cri
+    cri_shift = round(y3_cri - current_cri, 3)
 
-    risk_diff = round(sq[-1].projected_cri - iv[-1].projected_cri, 4)
+    if cri_shift > 0.03:
+        headline = "Risk is projected to increase over the next 3 years under status-quo operations."
+        summary = (
+            f"The Composite Risk Index is projected to rise from {current_cri:.3f} to {y3_cri:.3f} "
+            f"over the next 3 academic years if current trends in {assessment.primary_driving_signal} persist."
+        )
+        why_it_matters = (
+            f"Unfavorable momentum in {assessment.primary_driving_signal} compounds over time, "
+            f"increasing institutional vulnerability across subsequent admissions cycles."
+        )
+        what_to_check = "Implement targeted corrective interventions in admissions intake and placement outreach."
+    elif cri_shift < -0.03:
+        headline = "Risk is projected to decline over the next 3 years under current positive momentum."
+        summary = (
+            f"The Composite Risk Index is projected to improve from {current_cri:.3f} to {y3_cri:.3f} "
+            f"over the next 3 academic years."
+        )
+        why_it_matters = "Positive trends in operational indicators are actively stabilizing institutional performance."
+        what_to_check = "Maintain current governance policies and monitor departments showing isolated variance."
+    else:
+        headline = "Risk is projected to remain stable over the next 3 years."
+        summary = f"The Composite Risk Index is projected to remain steady around {current_cri:.3f} across the 3-year outlook."
+        why_it_matters = "Operational signals reflect balanced stability with no severe multi-period deterioration."
+        what_to_check = "Continue standard periodic monitoring of emerging signals."
 
-    p4_engine = ExplainableForecastingAndMemoryEngine()
-    _, cov, _ = p4_engine.compute_slopes_and_coverage(cet, admissions, placements, dynamic_signals)
-    latest_yr = max(cov.years_covered) if cov.years_covered else None
-    try:
-        what_if = p4_engine.run_what_if_analysis(
-            institution_id=institution_id,
-            current_cri=assessment.composite_risk_index,
-            feature_slopes=slopes,
-            intervention_effects=req.intervention_effects,
-            years_forward=req.years_forward,
-            latest_year=latest_yr,
-        )
-        # Persist intervention in institutional memory
-        import uuid
-        iv_entry = InstitutionalMemoryEntry(
-            memory_id=f"mem_whatif_{institution_id}_{uuid.uuid4().hex[:8]}",
-            institution_id=institution_id,
-            category=MemoryCategory.ANALYSIS,
-            domain="what_if_analysis",
-            metric_or_topic="intervention_simulation",
-            academic_year=latest_yr,
-            statement=what_if.reason_for_change,
-            confidence=1.0,
-            evidence_refs=[f"controls:{json.dumps(req.intervention_effects, sort_keys=True)}"],
-            payload=what_if.model_dump(mode="json"),
-        )
-        org_id = await _resolve_org_id(session, institution_id, current_user)
-        iv_entry.organization_id = org_id
-        await InstitutionalMemoryRepository.upsert_entry(
-            session=session,
-            entry=iv_entry,
-            organization_id=org_id,
-            user_id=current_user.id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    resp_dict = {
+        "institution_id": institution_id,
+        "status": "SUCCESS",
+        "headline": headline,
+        "summary": summary,
+        "why_it_matters": why_it_matters,
+        "what_to_check": what_to_check,
+        "method_used": "Autoregressive Trajectory Momentum (AR-1)",
+        "confidence": round(assessment.confidence_score, 2),
+        "horizon_years": 3,
+        "current_cri": current_cri,
+        "projections": [(t.model_dump() if hasattr(t, "model_dump") else t) for t in trajectory],
+        "historical_periods_used": distinct_years,
+    }
+    _PREDICTION_CACHE[cache_key] = resp_dict
+    return PredictionResponse(**resp_dict)
 
-    what_if.organization_id = await _resolve_org_id(session, institution_id, current_user)
-    return SimulationResponse(
-        institution_id=institution_id,
-        analysis_type="What-If Analysis",
-        current_cri=assessment.composite_risk_index,
-        status_quo_trajectory=sq,
-        intervention_trajectory=iv,
-        risk_reduction_achieved=risk_diff,
-        baseline=what_if.baseline,
-        intervention=what_if.intervention,
-        projected_trajectory=iv,
-        estimated_risk_change=what_if.estimated_risk_change,
-        reason_for_change=what_if.reason_for_change,
+
+class WhatIfInterventionRequest(BaseModel):
+    years_forward: int = Field(default=3, ge=1, le=5)
+    intervention_effects: Dict[str, float] = Field(
+        default_factory=lambda: {
+            "placement_boost": 0.0,
+            "vacancy_rate_reduction": 0.0,
+            "closing_rank_stabilization": 0.0,
+        }
     )
 
 
 @router.post("/{institution_id}/what-if", response_model=WhatIfAnalysisResponse)
-async def run_what_if_endpoint(
+@router.post("/{institution_id}/simulate", response_model=WhatIfAnalysisResponse)
+async def run_what_if_simulation(
     institution_id: str,
-    req: SimulateRequest,
+    req: WhatIfInterventionRequest,
     session: AsyncSession = Depends(get_db_session),
     current_user: UserModel = Depends(get_current_user),
 ):
     """
-    CIP Phase 4 What-If Analysis endpoint.
-    Provides Baseline, Intervention, Projected trajectory, Estimated risk change, and Reason for change.
-    Rejects any decorative/unrecognized controls that do not correspond to real mathematical model inputs.
+    Execute deterministic What-If Analysis and intervention simulation (Part 26: What-If Analysis).
+    Every user control corresponds directly to a real mathematical model input in TrajectoryPredictor:
+    - placement_boost: increases placement_pct_slope (-0.35 weight in composite momentum)
+    - vacancy_rate_reduction: decreases vacancy_rate_slope (+0.40 weight in composite momentum)
+    - closing_rank_stabilization: decreases closing_rank_slope (+0.25 weight in composite momentum)
+    Rejects unsupported/decorative controls with HTTP 422.
     """
-    cet, admissions, placements, dynamic_signals = await _load_institutional_signals(session, institution_id, current_user)
-    org_id = await _resolve_org_id(session, institution_id, current_user)
+    cet, admissions, placements, dynamic_signals = await _load_signals_allow_sparse(
+        session, institution_id, current_user
+    )
+    if not (cet or admissions or placements or dynamic_signals):
+        p4_engine = ExplainableForecastingAndMemoryEngine()
+        return p4_engine.run_what_if_analysis(
+            institution_id=institution_id,
+            current_cri=0.0,
+            feature_slopes={},
+            intervention_effects=req.intervention_effects,
+            years_forward=req.years_forward,
+            latest_year=None,
+        )
 
+    # Calculate baseline CRI
     engine = CrisisIntelligenceEngine()
     assessment = engine.evaluate_institution(
         institution_id=institution_id,
@@ -498,51 +707,46 @@ async def run_what_if_endpoint(
         placements_history=placements,
         dynamic_signals=dynamic_signals,
     )
+    current_cri = round(assessment.composite_risk_index, 4)
+
+    # Extract features and compute slopes
+    dept_features = extract_institutional_features(cet, admissions, placements)
+    slopes = _compute_institutional_slopes(dept_features, admissions)
+
+    # Determine latest academic year if available
+    years_set = set()
+    for c in cet:
+        if c.academic_year:
+            years_set.add(c.academic_year)
+    for a in admissions:
+        if a.academic_year:
+            years_set.add(a.academic_year)
+    for p in placements:
+        if p.graduation_year:
+            years_set.add(p.graduation_year)
+    for d in dynamic_signals:
+        if d.context and d.context.academic_year:
+            years_set.add(d.context.academic_year)
+    latest_year = max(years_set) if years_set else None
 
     p4_engine = ExplainableForecastingAndMemoryEngine()
-    slopes, cov, _ = p4_engine.compute_slopes_and_coverage(cet, admissions, placements, dynamic_signals)
-    # Use _compute_institutional_slopes if canonical admissions exist to stay 100% consistent with /simulate
-    dept_features = extract_institutional_features(cet, admissions, placements)
-    if dept_features:
-        canon_slopes = _compute_institutional_slopes(dept_features, admissions)
-        for k, v in canon_slopes.items():
-            slopes[k] = v
-
-    latest_yr = max(cov.years_covered) if cov.years_covered else None
     try:
-        what_if = p4_engine.run_what_if_analysis(
+        response = p4_engine.run_what_if_analysis(
             institution_id=institution_id,
-            current_cri=assessment.composite_risk_index,
+            current_cri=current_cri,
             feature_slopes=slopes,
             intervention_effects=req.intervention_effects,
             years_forward=req.years_forward,
-            latest_year=latest_yr,
+            latest_year=latest_year,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(ve),
+        )
 
-    what_if.organization_id = org_id
-    import uuid
-    iv_entry = InstitutionalMemoryEntry(
-        memory_id=f"mem_whatif_{institution_id}_{uuid.uuid4().hex[:8]}",
-        institution_id=institution_id,
-        organization_id=org_id,
-        category=MemoryCategory.ANALYSIS,
-        domain="what_if_analysis",
-        metric_or_topic="intervention_simulation",
-        academic_year=latest_yr,
-        statement=what_if.reason_for_change,
-        confidence=1.0,
-        evidence_refs=[f"controls:{json.dumps(req.intervention_effects, sort_keys=True)}"],
-        payload=what_if.model_dump(mode="json"),
-    )
-    await InstitutionalMemoryRepository.upsert_entry(
-        session=session,
-        entry=iv_entry,
-        organization_id=org_id,
-        user_id=current_user.id,
-    )
-    return what_if
+    response.organization_id = await _resolve_org_id(session, institution_id, current_user)
+    return response
 
 
 @router.get("/{institution_id}/report", response_model=ExecutiveNarrativeResponse)

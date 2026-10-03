@@ -14,7 +14,11 @@ _default_sqlite_url = (
     if os.getenv("VERCEL")
     else "sqlite+aiosqlite:///./ai_criss.db"
 )
-DATABASE_URL = os.getenv("DATABASE_URL", _default_sqlite_url)
+DATABASE_URL = os.getenv("DATABASE_URL", _default_sqlite_url).strip()
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 _connect_args = {"timeout": 30} if "sqlite" in DATABASE_URL else {}
 
@@ -98,10 +102,25 @@ def _migrate_sqlite_columns(sync_conn) -> None:
         ("organization_id", "VARCHAR(64)"),
         ("primary_institution_id", "VARCHAR(64)"),
         ("onboarding_completed", "BOOLEAN DEFAULT 0"),
+        ("is_verified", "BOOLEAN DEFAULT 1"),
     ]
     for col_name, col_def in user_migrations:
         if user_cols and col_name not in user_cols:
             sync_conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_def}"))
+
+    sig_cols = {
+        row[1] for row in sync_conn.execute(text("PRAGMA table_info(discovered_signals)")).fetchall()
+    }
+    sig_migrations = [
+        ("fingerprint", "VARCHAR(64)"),
+    ]
+    for col_name, col_def in sig_migrations:
+        if sig_cols and col_name not in sig_cols:
+            sync_conn.execute(text(f"ALTER TABLE discovered_signals ADD COLUMN {col_name} {col_def}"))
+
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS idx_disc_sig_fp ON discovered_signals (institution_id, fingerprint)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS idx_disc_sig_ident ON discovered_signals (institution_id, domain, metric_name, academic_year, department)"))
+    sync_conn.execute(text("CREATE INDEX IF NOT EXISTS idx_otp_email_purpose ON otp_verifications (email, purpose, used_at)"))
 
 
 async def init_db() -> None:

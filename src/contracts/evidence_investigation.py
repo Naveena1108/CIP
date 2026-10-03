@@ -155,6 +155,10 @@ class InsightWithEvidence(BaseModel):
     academic_year: Optional[int] = None
     is_uncertain: bool = False
     uncertainty_reason: Optional[str] = None
+    why_it_matters: Optional[str] = None
+    what_to_check: Optional[str] = None
+    source: Optional[str] = None
+    technical_details: Optional[Dict[str, Any]] = None
     provenance: List[ProvenanceRecord] = Field(default_factory=list)
 
 

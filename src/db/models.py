@@ -5,7 +5,7 @@ Complies with DDR Module 1 specification using SQLAlchemy 2.0 DeclarativeBase.
 
 from datetime import datetime, timezone
 from typing import Optional, List
-from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey, Boolean
+from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey, Boolean, Index
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -176,9 +176,36 @@ class UserModel(Base):
     organization_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     primary_institution_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class OTPVerificationModel(Base):
+    """
+    Dedicated persistence table for real backend OTP verification (email login & signup).
+    Enforces expiration, attempt limits, and single-use invalidation.
+    """
+    __tablename__ = "otp_verifications"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    purpose: Mapped[str] = mapped_column(String(32), nullable=False, index=True)  # 'login', 'signup', 'reset_password'
+    otp_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    invalidated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_otp_email_purpose", "email", "purpose", "used_at"),
     )
 
 
@@ -218,9 +245,15 @@ class DiscoveredSignalModel(Base):
     excerpt_or_reference: Mapped[str] = mapped_column(Text, nullable=False)
     extraction_confidence: Mapped[float] = mapped_column(Float, default=0.9)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    fingerprint: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
+    )
+
+    __table_args__ = (
+        Index("idx_disc_sig_fp", "institution_id", "fingerprint"),
+        Index("idx_disc_sig_ident", "institution_id", "domain", "metric_name", "academic_year", "department"),
     )
 
 

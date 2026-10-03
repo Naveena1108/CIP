@@ -945,20 +945,19 @@ class InstitutionalIntelligenceEngine:
                 if (b.polarity == "higher_is_better")
                 else ("increased" if b.polarity == "lower_is_better" else "shifted")
             )
-            scope_label = f" in department {dept}" if dept else " (Institution-Wide)"
-            what_changed = f"{b.metric_label} ({domain}.{metric_name}){scope_label} {direction_word}."
+            scope_label = f" in {dept}" if dept else ""
+            what_changed = f"{b.metric_label}{scope_label} {direction_word}."
 
             unit_sfx = "%" if b.unit == "%" else (f" {b.unit}" if b.unit and b.unit not in ("count", "ratio") else "")
             if info["comp_val"] is not None:
-                z_str = f", Z-score: {info['z_score']:+.2f}" if info["z_score"] is not None else " (no multi-year Z-score)"
+                z_str = f" (Z-score: {info['z_score']:+.2f})" if info["z_score"] is not None else ""
                 by_how_much = (
-                    f"Observed {info['latest_val']:.2f}{unit_sfx} vs comparison {info['comp_val']:.2f}{unit_sfx} "
-                    f"(absolute delta: {info['abs_delta']:+.2f}{unit_sfx}, relative change: {info['rel_pct']:+.1f}%{z_str})."
+                    f"Observed {info['latest_val']:.2f}{unit_sfx} vs baseline {info['comp_val']:.2f}{unit_sfx} "
+                    f"({info['rel_pct']:+.1f}% change{z_str})."
                 )
             else:
                 by_how_much = (
-                    f"Observed {info['latest_val']:.2f}{unit_sfx} (single-period observation; "
-                    f"domain risk severity score: {risk_contrib:.2f})."
+                    f"Observed {info['latest_val']:.2f}{unit_sfx} (single-period observation)."
                 )
 
             when_str = (

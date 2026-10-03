@@ -106,14 +106,43 @@
         .cip-card {
             background-color: var(--cip-surface);
             border: 1px solid var(--cip-border);
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+            border-radius: 1.25rem;
+            box-shadow: 0 10px 30px 0 rgba(37, 33, 36, 0.04);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .cip-subcard {
             background-color: var(--cip-surface-alt);
             border: 1px solid var(--cip-border);
-            border-radius: 0.375rem;
+            border-radius: 1rem;
+        }
+
+        .cip-floating-sidebar {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            border-radius: 28px;
+            box-shadow: 0 20px 60px rgba(37, 33, 36, 0.08);
+        }
+        html[data-theme="dark"] .cip-floating-sidebar {
+            background: rgba(36, 26, 32, 0.85);
+            border-color: #3D2D37;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .cip-floating-topbar {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 22px;
+            box-shadow: 0 12px 36px rgba(37, 33, 36, 0.06);
+        }
+        html[data-theme="dark"] .cip-floating-topbar {
+            background: rgba(36, 26, 32, 0.85);
+            border-color: #3D2D37;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
         }
 
         .cip-header {
@@ -130,7 +159,7 @@
             background-color: var(--cip-surface-alt);
             border: 1px solid var(--cip-border);
             color: var(--cip-text);
-            border-radius: 0.375rem;
+            border-radius: 0.625rem;
         }
         .cip-input:focus {
             outline: 2px solid var(--cip-primary);
@@ -140,19 +169,23 @@
         .cip-btn-primary {
             background-color: var(--cip-primary);
             color: #ffffff;
-            border-radius: 0.375rem;
+            border-radius: 0.75rem;
             font-weight: 600;
+            transition: all 0.2s ease;
         }
         .cip-btn-primary:hover {
             background-color: var(--cip-primary-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(122, 36, 56, 0.2);
         }
 
         .cip-btn-secondary {
             background-color: var(--cip-surface-alt);
             color: var(--cip-text);
             border: 1px solid var(--cip-border);
-            border-radius: 0.375rem;
+            border-radius: 0.75rem;
             font-weight: 500;
+            transition: all 0.2s ease;
         }
         .cip-btn-secondary:hover {
             background-color: var(--cip-surface-hover);
@@ -164,26 +197,29 @@
             justify-content: space-between;
             width: 100%;
             text-align: left;
-            padding: 0.55rem 0.75rem;
-            border-radius: 0.375rem;
+            padding: 0.625rem 0.875rem;
+            border-radius: 0.9375rem;
             font-size: 0.8125rem;
             font-weight: 500;
             color: var(--cip-text-secondary);
-            border-left: 3px solid transparent;
+            border: 1px solid transparent;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .cip-nav-btn:hover {
             background-color: var(--cip-surface-alt);
             color: var(--cip-text);
         }
         .cip-nav-btn.active {
-            background-color: var(--cip-primary-soft);
-            color: var(--cip-primary);
-            border-left-color: var(--cip-primary);
+            background-color: #E9DDE0;
+            color: #7A2438;
             font-weight: 600;
+            border-color: rgba(122, 36, 56, 0.12);
+            box-shadow: 0 2px 8px rgba(122, 36, 56, 0.08);
         }
         html[data-theme="dark"] .cip-nav-btn.active {
-            color: #93c5fd;
-            border-left-color: #60a5fa;
+            background-color: #382B33;
+            color: #C98291;
+            border-color: rgba(201, 130, 145, 0.2);
         }
 
         .cip-badge {
@@ -657,175 +693,258 @@
         </div>
     </div>
 
-    <!-- Top Application Bar -->
-    <header class="cip-header px-4 lg:px-6 py-3 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-40">
-        <div class="flex items-center space-x-3">
-            <button type="button" onclick="toggleMobileSidebar()" class="lg:hidden px-2.5 py-1.5 cip-btn-secondary text-xs" aria-label="Toggle Navigation">
-                ☰ Menu
-            </button>
-            <div id="statusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-600"></div>
-            <div>
-                <div class="flex items-center space-x-2">
-                    <h1 class="text-base font-bold tracking-tight">CIP</h1>
-                    <span class="text-xs cip-muted font-medium">| Crisis Intelligence Platform</span>
+    <!-- One UI Floating Adaptive Sidebar (Desktop & Tablet) -->
+    <aside id="mainSidebar" class="cip-floating-sidebar fixed left-4 top-4 bottom-4 z-40 hidden lg:flex flex-col justify-between w-[256px] p-4 select-none transition-all duration-300">
+        <div class="space-y-4">
+            <!-- Brand -->
+            <div class="flex items-center gap-3 px-2 py-1">
+                <div class="grid size-10 place-items-center rounded-[14px] bg-[#7A2438] text-sm font-semibold text-white shadow-sm">
+                    CI
+                </div>
+                <div>
+                    <div class="text-[15px] font-bold tracking-[-0.01em] text-[#252124] dark:text-[#F8F7F4]">
+                        CIP
+                    </div>
+                    <div class="text-[11px] text-[#9A9295]">
+                        Crisis Intelligence
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-            <!-- Phase 7: Analytical View Mode Switcher (Institution View vs Organization / Network View) -->
-            <div class="inline-flex items-center p-0.5 rounded cip-subcard text-xs font-semibold" role="group" aria-label="Analytical View Mode">
-                <button id="viewModeInstitutionBtn" type="button" onclick="switchAnalyticalViewMode('institution')" class="px-2.5 py-1 rounded cip-btn-primary">
-                    Institution View
-                </button>
-                <button id="viewModeOrganizationBtn" type="button" onclick="switchAnalyticalViewMode('organization')" class="px-2.5 py-1 rounded cip-muted">
-                    Organization / Network View
-                </button>
-            </div>
-
-            <!-- Active Entity Selector -->
-            <select id="activeInstitutionSelect" onchange="handleSwitchActiveInstitution(this.value)" class="text-xs font-mono px-2.5 py-1.5 cip-input" aria-label="Select Active Institution">
-                <option value="">Select an Institution...</option>
-            </select>
-
-            <!-- Theme Selector: Light / Dark / System Default ONLY -->
-            <div class="inline-flex items-center space-x-1 text-xs">
-                <label for="themeSelector" class="sr-only">Theme</label>
-                <select id="themeSelector" onchange="setCipTheme(this.value)" class="text-xs px-2.5 py-1.5 cip-input" aria-label="Theme Selector">
-                    <option value="system">Theme: System Default</option>
-                    <option value="light">Theme: Light</option>
-                    <option value="dark">Theme: Dark</option>
+            <!-- Institution Switcher Pill -->
+            <div class="relative">
+                <div class="flex w-full items-center gap-2.5 rounded-[16px] border border-[#EEE9E6] dark:border-[#3D2D37] bg-[#F8F7F4] dark:bg-[#1A1216] px-3 py-2.5 text-left transition-colors hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128]">
+                    <div id="sidebarInstAvatar" class="grid size-8 shrink-0 place-items-center rounded-[10px] bg-[#E9DDE0] dark:bg-[#382B33] text-[11px] font-bold text-[#7A2438] dark:text-[#C98291]">
+                        CI
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div id="sidebarInstName" class="truncate text-[12px] font-semibold text-[#252124] dark:text-[#F8F7F4]">
+                            Select Institution
+                        </div>
+                        <div id="sidebarInstType" class="truncate text-[10px] text-[#9A9295]">
+                            Institutional Workspace
+                        </div>
+                    </div>
+                    <svg class="w-4 h-4 text-[#9A9295] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <!-- Native Select overlay for seamless cross-browser accessibility and callback triggering -->
+                <select id="activeInstitutionSelect" onchange="handleSwitchActiveInstitution(this.value)" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" aria-label="Select Active Institution">
+                    <option value="">Select an Institution...</option>
                 </select>
             </div>
 
-            <!-- Universal Institutional Data Ingestion -->
-            <label for="universalUploadInput" id="addDataUploadLabel" class="cursor-pointer text-xs px-3 py-1.5 cip-btn-primary inline-flex items-center space-x-1">
-                <span>Add Data / Upload Data</span>
-                <input id="universalUploadInput" type="file" accept=".pdf,.xlsx,.xlsm,.csv,.tsv,.docx,.pptx,.txt,.md,.json,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.wav,.mp3,.m4a,.mp4,.mov,.webm" class="hidden" onchange="handleUniversalDataUpload(this)">
-            </label>
-
-            <button id="reEvalBtn" type="button" onclick="triggerEvaluation()" class="text-xs px-3 py-1.5 cip-btn-secondary">
-                Refresh Analysis
-            </button>
-            <button id="exportPdfBtn" type="button" onclick="downloadPdfReport()" class="text-xs px-3 py-1.5 cip-btn-secondary">
-                Export PDF Dossier
-            </button>
-            <button id="topEditClassBtn" type="button" onclick="openClassificationModal(true)" class="text-xs px-3 py-1.5 cip-btn-secondary" title="Edit Institution Classification & Profile">
-                Edit Classification
-            </button>
-            <button id="openProfilesBtn" type="button" onclick="navigateWorkflow('profile')" class="text-xs px-3 py-1.5 cip-btn-secondary">
-                Profile
-            </button>
-            <span id="roleBadge" class="cip-badge font-mono">Unauthenticated</span>
-            <button id="logoutBtn" type="button" onclick="handleLogout()" class="hidden text-xs px-2.5 py-1.5 cip-btn-secondary">
-                Sign Out
-            </button>
-        </div>
-    </header>
-
-    <!-- Floating Glass Navigation Bar (Adaptive across Desktop & Tablet) -->
-    <div class="w-full flex justify-center px-4 py-2 sticky top-14 z-30 pointer-events-none">
-        <nav id="floatingPillNav" class="floating-glass-nav pointer-events-auto flex items-center overflow-x-auto max-w-full" aria-label="Quick Intelligence Navigation">
-            <button type="button" id="float-nav-overview" onclick="navigateWorkflow('overview')" class="nav-pill active">Overview</button>
-            <button type="button" id="float-nav-investigations" onclick="navigateWorkflow('investigations')" class="nav-pill">Investigate</button>
-            <button type="button" id="float-nav-insights" onclick="navigateWorkflow('insights')" class="nav-pill">Insights</button>
-            <button type="button" id="float-nav-risks" onclick="navigateWorkflow('risks')" class="nav-pill">Risk</button>
-            <button type="button" id="float-nav-predictions" onclick="navigateWorkflow('predictions')" class="nav-pill">Forecast</button>
-            <button type="button" id="float-nav-whatif" onclick="navigateWorkflow('whatif')" class="nav-pill">What-If</button>
-            <button type="button" id="float-nav-evidence" onclick="navigateWorkflow('evidence')" class="nav-pill">Evidence</button>
-            <button type="button" id="float-nav-data" onclick="navigateWorkflow('data')" class="nav-pill">Data</button>
-            <button type="button" id="float-nav-osint" onclick="navigateWorkflow('osint')" class="nav-pill">External Context</button>
-            <button type="button" id="float-nav-memory" onclick="navigateWorkflow('memory')" class="nav-pill">Historical Context</button>
-            <button type="button" id="float-nav-profile" onclick="navigateWorkflow('profile')" class="nav-pill">Profile</button>
-        </nav>
-    </div>
-
-    <!-- Status Bar -->
-    <div id="liveActionBanner" class="px-4 lg:px-6 py-1.5 text-xs font-mono border-b flex flex-wrap items-center justify-between gap-2" style="background-color: var(--cip-surface-alt); border-color: var(--cip-border);">
-        <span id="liveBannerText" class="cip-secondary">CIP Ready — Authenticate or select an institutional workspace to inspect evidence-grounded intelligence.</span>
-        <div class="flex items-center space-x-2">
-            <span id="activeOrgBadge" class="cip-badge font-mono">ORG: STANDALONE</span>
-            <span id="entityClassificationBadge" class="cip-badge">Entity: Institutional Governance</span>
-            <span id="activeInstBadge" class="cip-badge font-mono">ACTIVE: None</span>
-        </div>
-    </div>
-
-    <!-- Main Application Shell: Left Workflow Navigation + Right Workspace Content -->
-    <div class="flex-1 flex min-h-0">
-
-        <!-- Left Navigation Sidebar (10 Dedicated User-Facing Workflows) -->
-        <aside id="mainSidebar" class="cip-sidebar w-64 shrink-0 hidden lg:flex flex-col justify-between p-4 select-none">
-            <div class="space-y-4">
-                <div class="px-2">
-                    <div class="text-[10px] font-semibold uppercase tracking-[0.16em]" style="color: var(--cip-text-muted);">Workspace</div>
+            <!-- Primary Workspace Navigation -->
+            <div class="space-y-1">
+                <div class="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#B8B2B4]">
+                    Workspace
                 </div>
                 <nav class="space-y-1" aria-label="CIP Workspace Navigation">
                     <button type="button" id="nav-overview" data-workflow="overview" onclick="navigateWorkflow('overview')" class="cip-nav-btn active">
-                        <span>Overview</span>
-                        <span id="navBadgeOverview" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                            <span>Overview</span>
+                        </span>
+                        <span id="navBadgeOverview" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-investigations" data-workflow="investigations" onclick="navigateWorkflow('investigations')" class="cip-nav-btn">
-                        <span>Investigate</span>
-                        <span id="navBadgeInvestigations" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            <span>Investigate</span>
+                        </span>
+                        <span id="navBadgeInvestigations" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-insights" data-workflow="insights" onclick="navigateWorkflow('insights')" class="cip-nav-btn">
-                        <span>Insights</span>
-                        <span id="navBadgeInsights" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                            <span>Insights</span>
+                        </span>
+                        <span id="navBadgeInsights" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-risks" data-workflow="risks" onclick="navigateWorkflow('risks')" class="cip-nav-btn">
-                        <span>Risk</span>
-                        <span id="navBadgeRisks" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                            <span>Risk</span>
+                        </span>
+                        <span id="navBadgeRisks" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-predictions" data-workflow="predictions" onclick="navigateWorkflow('predictions')" class="cip-nav-btn">
-                        <span>Forecast</span>
-                        <span id="navBadgePredictions" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span>Forecast</span>
+                        </span>
+                        <span id="navBadgePredictions" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-whatif" data-workflow="whatif" onclick="navigateWorkflow('whatif')" class="cip-nav-btn">
-                        <span>What-If</span>
-                        <span id="navBadgeWhatIf" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                            <span>What-If</span>
+                        </span>
+                        <span id="navBadgeWhatIf" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-evidence" data-workflow="evidence" onclick="navigateWorkflow('evidence')" class="cip-nav-btn">
-                        <span>Evidence</span>
-                        <span id="navBadgeEvidence" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span>Evidence</span>
+                        </span>
+                        <span id="navBadgeEvidence" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-data" data-workflow="data" onclick="navigateWorkflow('data')" class="cip-nav-btn">
-                        <span id="navLabelData">Data</span>
-                        <span id="navBadgeData" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"></path></svg>
+                            <span id="navLabelData">Data</span>
+                        </span>
+                        <span id="navBadgeData" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                 </nav>
+            </div>
 
-                <div class="my-3 h-px" style="background-color: var(--cip-border);"></div>
+            <div class="h-px bg-[#EEE9E6] dark:bg-[#3D2D37]"></div>
 
-                <div class="px-2">
-                    <div class="text-[10px] font-semibold uppercase tracking-[0.16em]" style="color: var(--cip-text-muted);">Context</div>
+            <!-- Context Navigation -->
+            <div class="space-y-1">
+                <div class="px-2 mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#B8B2B4]">
+                    Context
                 </div>
                 <nav class="space-y-1" aria-label="CIP Context Navigation">
                     <button type="button" id="nav-osint" data-workflow="osint" onclick="navigateWorkflow('osint')" class="cip-nav-btn">
-                        <span>External Context</span>
-                        <span id="navBadgeOsint" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>
+                            <span>External Context</span>
+                        </span>
+                        <span id="navBadgeOsint" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-memory" data-workflow="memory" onclick="navigateWorkflow('memory')" class="cip-nav-btn">
-                        <span>Historical Context</span>
-                        <span id="navBadgeMemory" class="text-[11px] font-mono cip-muted">—</span>
-                    </button>
-                    <button type="button" id="nav-profile" data-workflow="profile" onclick="navigateWorkflow('profile')" class="cip-nav-btn">
-                        <span id="navLabelProfile">Profile</span>
-                        <span id="navBadgeProfile" class="text-[11px] font-mono cip-muted">—</span>
+                        <span class="flex items-center gap-2.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>Historical Context</span>
+                        </span>
+                        <span id="navBadgeMemory" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                 </nav>
             </div>
+        </div>
 
-            <div class="pt-4 border-t space-y-2 text-xs" style="border-color: var(--cip-border);">
-                <div class="text-[11px] font-mono cip-muted">CORE METHODOLOGY</div>
-                <div class="text-[11px] cip-secondary leading-relaxed">
-                    Facts &rarr; Analysis &rarr; Signals &rarr; Predictions &rarr; Actions
+        <!-- Sidebar Footer: Profile & Sign Out -->
+        <div class="border-t border-[#EEE9E6] dark:border-[#3D2D37] pt-3 space-y-2">
+            <button type="button" id="nav-profile" data-workflow="profile" onclick="navigateWorkflow('profile')" class="flex w-full items-center gap-2.5 rounded-[16px] p-2 text-left transition-colors hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128]">
+                <div class="grid size-8 shrink-0 place-items-center rounded-full bg-[#E9DDE0] dark:bg-[#382B33] text-[#7A2438] dark:text-[#C98291]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                 </div>
-                <div id="permissionScopeNotice" class="text-[11px] font-mono cip-muted">Scope: Authorized Access</div>
+                <div class="min-w-0 flex-1">
+                    <div id="sidebarUserName" class="truncate text-[12px] font-semibold text-[#252124] dark:text-[#F8F7F4]">
+                        Institutional Officer
+                    </div>
+                    <div id="sidebarUserRole" class="truncate text-[10px] text-[#9A9295]">
+                        Authorized Access
+                    </div>
+                </div>
+            </button>
+            <button id="logoutBtn" type="button" onclick="handleLogout()" class="hidden w-full items-center gap-2 rounded-[12px] px-3 py-1.5 text-left text-[11px] text-[#6F686B] dark:text-[#C98291] transition-colors hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] hover:text-[#7A2438]">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <span>Sign Out</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Workspace Container -->
+    <div class="flex-1 lg:pl-[280px] flex flex-col min-h-screen">
+
+        <!-- Floating One UI Top Context Bar -->
+        <header class="sticky top-4 z-30 mb-4 mx-auto w-full max-w-[1440px] px-3 sm:px-4">
+            <div class="cip-floating-topbar flex min-h-[64px] items-center justify-between gap-3 px-4 sm:px-5 py-3">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button type="button" onclick="toggleMobileSidebar()" class="lg:hidden grid size-9 place-items-center rounded-[12px] border border-[#EEE9E6] dark:border-[#3D2D37] bg-white dark:bg-[#241A20] text-[#6F686B] text-xs" aria-label="Toggle Navigation">
+                        ☰
+                    </button>
+                    <div id="statusDot" class="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0"></div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-semibold uppercase tracking-wider text-[#9A9295] hidden sm:inline">CIP Workspace</span>
+                            <span class="text-[10px] text-[#9A9295] hidden sm:inline">•</span>
+                            <span id="roleBadge" class="cip-badge font-mono text-[10px]">Unauthenticated</span>
+                        </div>
+                        <h1 id="topBarPageTitle" class="text-base sm:text-lg font-bold tracking-tight text-[#252124] dark:text-[#F8F7F4] truncate">
+                            Executive Overview
+                        </h1>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- Command Search Trigger (Ctrl+K) -->
+                    <button type="button" onclick="openCommandSearch()" class="hidden md:flex h-9 items-center gap-2 rounded-[13px] border border-[#EEE9E6] dark:border-[#3D2D37] bg-[#F8F7F4] dark:bg-[#1A1216] px-3 text-[#9A9295] text-[12px] transition-colors hover:bg-[#F3F0ED] cursor-pointer" aria-label="Command Search">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        <span>Search</span>
+                        <kbd class="ml-1.5 flex items-center rounded border border-[#E5DFDC] dark:border-[#3D2D37] bg-white dark:bg-[#241A20] px-1.5 py-0.5 text-[9px] font-mono">Ctrl K</kbd>
+                    </button>
+
+                    <!-- Analytical View Mode Switcher -->
+                    <div class="inline-flex items-center p-0.5 rounded-[12px] border border-[#EEE9E6] dark:border-[#3D2D37] bg-[#F8F7F4] dark:bg-[#1A1216] text-[11px] font-semibold" role="group" aria-label="Analytical View Mode">
+                        <button id="viewModeInstitutionBtn" type="button" onclick="switchAnalyticalViewMode('institution')" class="px-2.5 py-1 rounded-[10px] cip-btn-primary">
+                            Institution
+                        </button>
+                        <button id="viewModeOrganizationBtn" type="button" onclick="switchAnalyticalViewMode('organization')" class="px-2.5 py-1 rounded-[10px] text-[#6F686B] dark:text-[#C98291]">
+                            Network
+                        </button>
+                    </div>
+
+                    <!-- Universal Institutional Data Ingestion -->
+                    <label for="universalUploadInput" id="addDataUploadLabel" class="cursor-pointer text-xs px-3 py-1.5 cip-btn-primary inline-flex items-center gap-1.5 shadow-sm">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span class="hidden sm:inline">Add Data</span>
+                        <input id="universalUploadInput" type="file" accept=".pdf,.xlsx,.xlsm,.csv,.tsv,.docx,.pptx,.txt,.md,.json,.png,.jpg,.jpeg,.webp,.bmp,.tiff,.wav,.mp3,.m4a,.mp4,.mov,.webm" class="hidden" onchange="handleUniversalDataUpload(this)">
+                    </label>
+
+                    <button id="reEvalBtn" type="button" onclick="triggerEvaluation()" class="hidden sm:inline-flex text-xs px-2.5 py-1.5 cip-btn-secondary" title="Refresh Analysis">
+                        Refresh
+                    </button>
+                    <button id="exportPdfBtn" type="button" onclick="downloadPdfReport()" class="hidden sm:inline-flex text-xs px-2.5 py-1.5 cip-btn-secondary" title="Export PDF Dossier">
+                        Export PDF
+                    </button>
+                    <button id="topEditClassBtn" type="button" onclick="openClassificationModal(true)" class="hidden md:inline-flex text-xs px-2.5 py-1.5 cip-btn-secondary" title="Edit Institution Classification & Profile">
+                        Classify
+                    </button>
+
+                    <!-- Theme Selector -->
+                    <select id="themeSelector" onchange="setCipTheme(this.value)" class="text-xs px-2 py-1.5 cip-input" aria-label="Theme Selector">
+                        <option value="system">Theme: Auto</option>
+                        <option value="light">Theme: Light</option>
+                        <option value="dark">Theme: Dark</option>
+                    </select>
+                </div>
             </div>
-        </aside>
+        </header>
+
+        <!-- Floating Quick Intelligence Navigation Pill Bar -->
+        <div class="w-full flex justify-center px-4 mb-4 pointer-events-none sticky top-20 z-20">
+            <nav id="floatingPillNav" class="floating-glass-nav pointer-events-auto flex items-center overflow-x-auto max-w-full" aria-label="Quick Intelligence Navigation">
+                <button type="button" id="float-nav-overview" onclick="navigateWorkflow('overview')" class="nav-pill active">Overview</button>
+                <button type="button" id="float-nav-investigations" onclick="navigateWorkflow('investigations')" class="nav-pill">Investigate</button>
+                <button type="button" id="float-nav-insights" onclick="navigateWorkflow('insights')" class="nav-pill">Insights</button>
+                <button type="button" id="float-nav-risks" onclick="navigateWorkflow('risks')" class="nav-pill">Risk</button>
+                <button type="button" id="float-nav-predictions" onclick="navigateWorkflow('predictions')" class="nav-pill">Forecast</button>
+                <button type="button" id="float-nav-whatif" onclick="navigateWorkflow('whatif')" class="nav-pill">What-If</button>
+                <button type="button" id="float-nav-evidence" onclick="navigateWorkflow('evidence')" class="nav-pill">Evidence</button>
+                <button type="button" id="float-nav-data" onclick="navigateWorkflow('data')" class="nav-pill">Data</button>
+                <button type="button" id="float-nav-osint" onclick="navigateWorkflow('osint')" class="nav-pill">External Context</button>
+                <button type="button" id="float-nav-memory" onclick="navigateWorkflow('memory')" class="nav-pill">Historical Context</button>
+                <button type="button" id="float-nav-profile" onclick="navigateWorkflow('profile')" class="nav-pill">Profile</button>
+            </nav>
+        </div>
+
+        <!-- Live Action Status Banner -->
+        <div class="mx-auto w-full max-w-[1440px] px-3 sm:px-4 mb-4">
+            <div id="liveActionBanner" class="rounded-[16px] px-4 py-2 text-xs font-mono border flex flex-wrap items-center justify-between gap-2 bg-[#F8F7F4] dark:bg-[#1A1216] border-[#EEE9E6] dark:border-[#3D2D37]">
+                <span id="liveBannerText" class="cip-secondary truncate">CIP Ready — Authenticate or select an institutional workspace to inspect evidence-grounded intelligence.</span>
+                <div class="flex items-center space-x-2 shrink-0">
+                    <span id="activeOrgBadge" class="cip-badge font-mono">ORG: STANDALONE</span>
+                    <span id="entityClassificationBadge" class="cip-badge">Entity: Institutional Governance</span>
+                    <span id="activeInstBadge" class="cip-badge font-mono">ACTIVE: None</span>
+                </div>
+            </div>
+        </div>
 
         <!-- Main Content Area -->
-        <main class="flex-1 p-4 lg:p-6 overflow-y-auto space-y-6">
+        <main class="mx-auto w-full max-w-[1440px] px-3 sm:px-4 pb-28 lg:pb-12 space-y-6">
 
             <!-- ===================================================================== -->
             <!-- WORKFLOW 1: OVERVIEW                                                  -->
@@ -1069,67 +1188,79 @@
                     </div>
                 </div>
 
-                <!-- Institutional Risk Score & Analytical Trajectory Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <!-- Institutional Risk Score Card (Composition -> Donut) -->
-                    <div class="lg:col-span-4 cip-card p-5 flex flex-col justify-between">
-                        <div>
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-sm font-bold">Overall Risk Score</h3>
-                                <span class="text-[11px] font-mono cip-muted">Scale: 0 – 100%</span>
-                            </div>
-                            <p class="text-xs cip-muted mt-0.5">Synthesized from admissions, placement rates, rankings, and operational signals.</p>
-                        </div>
+                <!-- One UI Technical Disclosure: Mathematical Trajectory & CRI Composition -->
+                <details class="group rounded-[24px] border border-[#E5DFDC] dark:border-[#3D2D37] bg-white dark:bg-[#241A20] p-6 shadow-sm transition-all">
+                    <summary class="flex items-center justify-between cursor-pointer font-semibold text-xs text-[#6F686B] dark:text-[#C98291] select-none hover:text-[#7A2438]">
+                        <span class="flex items-center gap-2">
+                            <span>Technical Details & Statistical Model Diagnostics</span>
+                            <span class="text-[10px] rounded-full bg-[#F3F0ED] dark:bg-[#2D2128] px-2 py-0.5 text-[#9A9295]">Progressive Disclosure</span>
+                        </span>
+                        <span class="text-[11px] font-mono text-[#9A9295]">CRI Decomposition & Autoregressive Curve ▾</span>
+                    </summary>
+                    <div class="mt-5 pt-4 border-t border-[#EEE9E6] dark:border-[#3D2D37] space-y-6">
+                        <!-- Institutional Risk Score & Analytical Trajectory Charts -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <!-- Institutional Risk Score Card (Composition -> Donut) -->
+                            <div class="lg:col-span-4 cip-card p-5 flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-sm font-bold">Overall Risk Score</h3>
+                                        <span class="text-[11px] font-mono cip-muted">Scale: 0 – 100%</span>
+                                    </div>
+                                    <p class="text-xs cip-muted mt-0.5">Synthesized from admissions, placement rates, rankings, and operational signals.</p>
+                                </div>
 
-                        <div class="relative w-44 h-44 mx-auto my-4 flex items-center justify-center">
-                            <canvas id="criDialChart" width="176" height="176"></canvas>
-                            <div class="absolute flex flex-col items-center">
-                                <span id="criValue" class="text-2xl font-bold font-mono">—</span>
-                                <span class="text-[10px] font-mono cip-muted">OVERALL RISK</span>
-                                <span id="riskBadge" class="mt-1 cip-badge font-mono uppercase">AWAITING DATA</span>
-                            </div>
-                        </div>
+                                <div class="relative w-44 h-44 mx-auto my-4 flex items-center justify-center">
+                                    <canvas id="criDialChart" width="176" height="176"></canvas>
+                                    <div class="absolute flex flex-col items-center">
+                                        <span id="criValue" class="text-2xl font-bold font-mono">—</span>
+                                        <span class="text-[10px] font-mono cip-muted">OVERALL RISK</span>
+                                        <span id="riskBadge" class="mt-1 cip-badge font-mono uppercase">AWAITING DATA</span>
+                                    </div>
+                                </div>
 
-                        <div class="space-y-2 pt-3 border-t text-xs" style="border-color: var(--cip-border);">
-                            <div class="flex justify-between">
-                                <span class="cip-muted">Active Entity ID:</span>
-                                <span id="instIdText" class="font-mono font-semibold">—</span>
+                                <div class="space-y-2 pt-3 border-t text-xs" style="border-color: var(--cip-border);">
+                                    <div class="flex justify-between">
+                                        <span class="cip-muted">Active Entity ID:</span>
+                                        <span id="instIdText" class="font-mono font-semibold">—</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="cip-muted">Primary Driving Signal:</span>
+                                        <span id="threatText" class="font-semibold">Awaiting Ingestion</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="cip-muted">Statistical Confidence:</span>
+                                        <span id="confText" class="font-mono font-semibold">—</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="flex justify-between">
-                                <span class="cip-muted">Primary Driving Signal:</span>
-                                <span id="threatText" class="font-semibold">Awaiting Ingestion</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="cip-muted">Statistical Confidence:</span>
-                                <span id="confText" class="font-mono font-semibold">—</span>
+
+                            <!-- Multi-Year Trajectory Line Chart (Trend -> Line / Forecast -> Trajectory) -->
+                            <div class="lg:col-span-8 cip-card p-5 flex flex-col justify-between">
+                                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                                    <div>
+                                        <h3 id="chartTitleText" class="text-sm font-bold">Composite Risk Index Trend — Historical &amp; 3-Year Trajectory</h3>
+                                        <p class="text-xs cip-muted">Evaluates historical academic periods and projects forward trajectory using autoregressive forecasting.</p>
+                                    </div>
+                                    <div class="flex items-center space-x-3 text-xs">
+                                        <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span><span class="cip-secondary">Historical Composite Risk Index (solid blue)</span></span>
+                                        <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span class="cip-secondary">Projected 3-Year Trajectory (dashed amber)</span></span>
+                                    </div>
+                                </div>
+                                <div class="relative h-64">
+                                    <canvas id="temporalChart"></canvas>
+                                    <div id="temporalChartEmptyState" class="hidden absolute inset-0 flex items-center justify-center cip-subcard text-xs cip-muted p-4 text-center">
+                                        Insufficient historical data to plot trend line. At least 2 academic periods required.
+                                    </div>
+                                </div>
+                                <div id="chartPlainSummary" class="mt-3 p-3 cip-subcard text-xs flex flex-wrap items-center gap-2">
+                                    <span class="font-bold text-blue-600 dark:text-blue-400">Executive Takeaway:</span>
+                                    <span id="chartPlainSummaryText" class="cip-secondary">Upload data or refresh analysis to inspect projected multi-year institutional trajectories.</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-
-                    <!-- Multi-Year Trajectory Line Chart (Trend -> Line / Forecast -> Trajectory) -->
-                    <div class="lg:col-span-8 cip-card p-5 flex flex-col justify-between">
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                            <div>
-                                <h3 id="chartTitleText" class="text-sm font-bold">Composite Risk Index Trend — Historical &amp; 3-Year Trajectory</h3>
-                                <p class="text-xs cip-muted">Evaluates historical academic periods and projects forward trajectory using autoregressive forecasting.</p>
-                            </div>
-                            <div class="flex items-center space-x-3 text-xs">
-                                <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span><span class="cip-secondary">Historical Composite Risk Index (solid blue)</span></span>
-                                <span class="flex items-center space-x-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span><span class="cip-secondary">Projected 3-Year Trajectory (dashed amber)</span></span>
-                            </div>
-                        </div>
-                        <div class="relative h-64">
-                            <canvas id="temporalChart"></canvas>
-                            <div id="temporalChartEmptyState" class="hidden absolute inset-0 flex items-center justify-center cip-subcard text-xs cip-muted p-4 text-center">
-                                Insufficient historical data to plot trend line. At least 2 academic periods required.
-                            </div>
-                        </div>
-                        <div id="chartPlainSummary" class="mt-3 p-3 cip-subcard text-xs flex flex-wrap items-center gap-2">
-                            <span class="font-bold text-blue-600 dark:text-blue-400">Executive Takeaway:</span>
-                            <span id="chartPlainSummaryText" class="cip-secondary">Upload data or refresh analysis to inspect projected multi-year institutional trajectories.</span>
-                        </div>
-                    </div>
-                </div>
+                </details>
 
                 <!-- Overview Bottom Row: AI Executive Analysis & Quick Anomaly Feed -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -2111,6 +2242,44 @@
         </main>
     </div>
 
+    <!-- One UI Command Search Modal (Ctrl+K) -->
+    <div id="cipCommandSearchModal" class="hidden fixed inset-0 z-[100] bg-[#252124]/20 backdrop-blur-md flex items-start justify-center pt-[10vh] px-4" onclick="closeCommandSearch(event)">
+        <div class="w-full max-w-2xl rounded-[26px] border border-white/70 bg-white/95 dark:bg-[#241A20]/95 dark:border-[#3D2D37] shadow-[0_30px_90px_rgba(37,33,36,0.18)] backdrop-blur-2xl overflow-hidden" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-3 border-b border-[#EEE9E6] dark:border-[#3D2D37] px-5 py-4">
+                <svg class="w-5 h-5 text-[#9A9295]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <input id="commandSearchInput" type="text" placeholder="Search institution, finding, evidence, or navigation..." class="min-w-0 flex-1 bg-transparent text-[14px] outline-none text-[#252124] dark:text-[#F8F7F4] placeholder:text-[#B8B2B4]" oninput="handleCommandSearchInput(this.value)">
+                <kbd class="hidden sm:inline-block px-2 py-0.5 text-[10px] font-mono text-[#9A9295] bg-[#F3F0ED] dark:bg-[#1A1216] rounded border border-[#E5DFDC] dark:border-[#3D2D37]">ESC</kbd>
+                <button type="button" onclick="closeCommandSearch()" class="grid size-8 place-items-center rounded-[10px] bg-[#F3F0ED] dark:bg-[#1A1216] text-[#6F686B] hover:text-[#252124]">✕</button>
+            </div>
+            <div id="commandSearchResults" class="p-3 max-h-[60vh] overflow-y-auto space-y-1 text-xs">
+                <div class="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-[#9A9295]">Quick Intelligence Modules</div>
+                <div class="grid grid-cols-2 gap-1.5 p-1">
+                    <button type="button" onclick="navigateWorkflow('overview'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
+                        <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">📊 Overview</span>
+                    </button>
+                    <button type="button" onclick="navigateWorkflow('investigations'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
+                        <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">🔍 Investigate</span>
+                    </button>
+                    <button type="button" onclick="navigateWorkflow('predictions'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
+                        <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">📈 Forecast</span>
+                    </button>
+                    <button type="button" onclick="navigateWorkflow('whatif'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
+                        <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">✨ What-If Simulator</span>
+                    </button>
+                    <button type="button" onclick="navigateWorkflow('evidence'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
+                        <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">📑 Evidence Provenance</span>
+                    </button>
+                    <button type="button" onclick="navigateWorkflow('data'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
+                        <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">📁 Ingested Data</span>
+                    </button>
+                </div>
+                <div id="dynamicSearchResults" class="mt-2 pt-2 border-t border-[#EEE9E6] dark:border-[#3D2D37]">
+                    <div class="px-3 py-2 text-[11px] text-[#9A9295]">Type an inquiry to search findings, signals, and evidence across the workspace.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let criChart, temporalChart, riskComparisonChart;
         let authToken = null;
@@ -2179,9 +2348,29 @@
             'predictions', 'whatif', 'evidence', 'data', 'memory', 'profile', 'osint'
         ];
 
+        const WORKFLOW_TITLES = {
+            overview: { title: "Executive Overview", subtitle: "Evidence-grounded institutional posture, change detection, and trajectory" },
+            investigations: { title: "Institutional Investigations", subtitle: "Natural-language query & cross-signal anomaly investigations" },
+            insights: { title: "Insights & Findings", subtitle: "Structured longitudinal insights categorized by magnitude and significance" },
+            risks: { title: "Risk & Early Warnings", subtitle: "5-stage progression monitoring emerging risks before escalation" },
+            predictions: { title: "Trajectory Forecast", subtitle: "Deterministic 1–3 year institutional trajectory and autoregressive predictions" },
+            whatif: { title: "What-If Simulator", subtitle: "Counterfactual intervention modeling with parameter-driven impact" },
+            evidence: { title: "Evidence Provenance", subtitle: "7-field deterministic evidence chains grounding all institutional claims" },
+            data: { title: "Institutional Data", subtitle: "Multi-domain ingestion, canonical observations, and historical datasets" },
+            osint: { title: "External Context", subtitle: "Real-time media sentiment, regulatory alerts, and ecosystem intelligence" },
+            memory: { title: "Historical Context", subtitle: "Longitudinal patterns, prior interventions, and institutional memory" },
+            profile: { title: "Institutional Profile & Access", subtitle: "Role assignments, governance classification, and identity management" }
+        };
+
         function navigateWorkflow(workflow) {
             const target = WORKFLOW_IDS.includes(workflow) ? workflow : 'overview';
             activeWorkflow = target;
+
+            // Update One UI Top Context Bar Title & Subtitle
+            const meta = WORKFLOW_TITLES[target] || WORKFLOW_TITLES.overview;
+            const titleEl = document.getElementById('topBarPageTitle');
+            if (titleEl) titleEl.innerText = meta.title;
+
             WORKFLOW_IDS.forEach(w => {
                 const sec = document.getElementById(`view-${w}`);
                 const btn = document.getElementById(`nav-${w}`);
@@ -2221,6 +2410,96 @@
             if (temporalChart) temporalChart.resize();
             if (riskComparisonChart) riskComparisonChart.resize();
         }
+
+        // =========================================================================
+        // ONE UI COMMAND SEARCH SYSTEM (Ctrl+K)
+        // =========================================================================
+        window.__cipSearchResults = [];
+
+        function openCommandSearch() {
+            const modal = document.getElementById('cipCommandSearchModal');
+            const input = document.getElementById('commandSearchInput');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            if (input) {
+                input.value = '';
+                setTimeout(() => input.focus(), 50);
+            }
+        }
+
+        function closeCommandSearch(e) {
+            const modal = document.getElementById('cipCommandSearchModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        function handleCommandSearchInput(query) {
+            const container = document.getElementById('dynamicSearchResults');
+            if (!container) return;
+            const q = (query || '').trim().toLowerCase();
+            if (!q) {
+                container.innerHTML = '<div class="px-3 py-2 text-[11px] text-[#9A9295]">Type an inquiry to search findings, signals, and evidence across the workspace.</div>';
+                return;
+            }
+
+            let results = [];
+            // Match workflows
+            WORKFLOW_IDS.forEach(id => {
+                const title = (WORKFLOW_TITLES[id]?.title || id).toLowerCase();
+                if (title.includes(q) || id.includes(q)) {
+                    results.push({
+                        label: `Module: ${WORKFLOW_TITLES[id]?.title || id}`,
+                        sub: WORKFLOW_TITLES[id]?.subtitle || 'CIP Module',
+                        action: () => { navigateWorkflow(id); closeCommandSearch(); }
+                    });
+                }
+            });
+
+            // Match cached anomalies or signals
+            if (window.cachedEvidenceCatalog && Array.isArray(window.cachedEvidenceCatalog.insights)) {
+                window.cachedEvidenceCatalog.insights.forEach((ins, idx) => {
+                    const text = `${ins.finding || ''} ${ins.signal_name || ''} ${ins.summary || ''}`.toLowerCase();
+                    if (text.includes(q)) {
+                        results.push({
+                            label: ins.finding || `Finding #${idx + 1}`,
+                            sub: `Evidence finding: ${ins.signal_name || 'Signal'}`,
+                            action: () => { navigateWorkflow('evidence'); revealInsightEvidence(idx); closeCommandSearch(); }
+                        });
+                    }
+                });
+            }
+
+            if (results.length === 0) {
+                container.innerHTML = `<div class="px-3 py-2 text-[11px] text-[#9A9295]">No matches found for "${query}". Try searching "admissions", "placement", "risk", or a workflow name.</div>`;
+                return;
+            }
+
+            let html = `<div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#9A9295]">Search Results (${results.length})</div>`;
+            results.slice(0, 6).forEach((r, idx) => {
+                html += `
+                    <div onclick="window.__cipSearchResults[${idx}]()" class="p-2.5 rounded-[12px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] cursor-pointer flex flex-col gap-0.5">
+                        <div class="font-semibold text-[#252124] dark:text-[#F8F7F4] text-[12px]">${r.label}</div>
+                        <div class="text-[#9A9295] text-[10px]">${r.sub}</div>
+                    </div>
+                `;
+            });
+            window.__cipSearchResults = results.map(r => r.action);
+            container.innerHTML = html;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                openCommandSearch();
+            }
+            if (e.key === 'Escape') {
+                closeCommandSearch();
+            }
+        });
 
         function toggleMobileMoreSheet(forceState) {
             const sheet = document.getElementById('mobileMoreSheet');
@@ -2871,6 +3150,15 @@
                 if (activeBadge) activeBadge.innerText = `ACTIVE: ${currentInstitutionId}`;
                 const instIdText = document.getElementById('instIdText');
                 if (instIdText) instIdText.innerText = currentInstitutionId;
+
+                // Sync One UI sidebar institution pill
+                const avatarEl = document.getElementById('sidebarInstAvatar');
+                const nameEl = document.getElementById('sidebarInstName');
+                const typeEl = document.getElementById('sidebarInstType');
+                if (avatarEl) avatarEl.innerText = (matched.name || matched.id).slice(0, 2).toUpperCase();
+                if (nameEl) nameEl.innerText = matched.name || matched.id;
+                if (typeEl) typeEl.innerText = matched.education_entity_type || matched.entity_type || 'Institution';
+
                 if (matched.organization_id) {
                     currentOrganizationId = matched.organization_id;
                     const orgBadge = document.getElementById('activeOrgBadge');
@@ -2887,6 +3175,20 @@
             currentInstitutionId = instId;
             localStorage.setItem('aicriss_primary_inst', instId);
             sessionStorage.setItem('aicriss_primary_inst', instId);
+
+            // Sync One UI sidebar institution pill from selector
+            const sel = document.getElementById('activeInstitutionSelect');
+            if (sel) {
+                const opt = sel.options[sel.selectedIndex];
+                if (opt) {
+                    const cleanName = opt.innerText.split('(')[0].trim();
+                    const nameEl = document.getElementById('sidebarInstName');
+                    const avatarEl = document.getElementById('sidebarInstAvatar');
+                    if (nameEl) nameEl.innerText = cleanName;
+                    if (avatarEl) avatarEl.innerText = cleanName.slice(0, 2).toUpperCase();
+                }
+            }
+
             try {
                 const swRes = await authFetch('/api/v1/profiles/switch-context', {
                     method: 'POST',
@@ -3502,6 +3804,10 @@
             });
             document.getElementById('roleBadge').innerText = 'Unauthenticated';
             document.getElementById('logoutBtn').classList.add('hidden');
+            const userNameEl = document.getElementById('sidebarUserName');
+            const userRoleEl = document.getElementById('sidebarUserRole');
+            if (userNameEl) userNameEl.innerText = 'Institutional Officer';
+            if (userRoleEl) userRoleEl.innerText = 'Unauthenticated';
             document.getElementById('onboardingModal').classList.add('hidden');
             document.getElementById('loginErrorBox').classList.add('hidden');
             document.getElementById('loginStatusBox').innerText = 'Status: Signed out. Please authenticate to continue.';
@@ -3542,6 +3848,10 @@
 
             document.getElementById('roleBadge').innerText = `${email}`;
             document.getElementById('logoutBtn').classList.remove('hidden');
+            const userNameEl = document.getElementById('sidebarUserName');
+            const userRoleEl = document.getElementById('sidebarUserRole');
+            if (userNameEl) userNameEl.innerText = email.split('@')[0];
+            if (userRoleEl) userRoleEl.innerText = role || 'Authorized Access';
             document.getElementById('loginModal').classList.add('hidden');
             adaptNavigationToEntityAndPermissions(currentEntityCategory, role);
 
@@ -3618,6 +3928,10 @@
                         document.getElementById('loginModal').classList.add('hidden');
                         document.getElementById('logoutBtn').classList.remove('hidden');
                         document.getElementById('roleBadge').innerText = userData.email || 'Authenticated';
+                        const userNameEl = document.getElementById('sidebarUserName');
+                        const userRoleEl = document.getElementById('sidebarUserRole');
+                        if (userNameEl && userData.email) userNameEl.innerText = (userData.full_name || userData.email).split('@')[0];
+                        if (userRoleEl && userData.role) userRoleEl.innerText = userData.role;
                         return cached;
                     }
                 } catch (e) {
@@ -3627,6 +3941,8 @@
                     window.__cipAuthToken = cached;
                     document.getElementById('loginModal').classList.add('hidden');
                     document.getElementById('logoutBtn').classList.remove('hidden');
+                    const userNameEl = document.getElementById('sidebarUserName');
+                    if (userNameEl) userNameEl.innerText = 'Officer';
                     return cached;
                 }
                 // Revoked or expired on server

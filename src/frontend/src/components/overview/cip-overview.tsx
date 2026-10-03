@@ -21,24 +21,26 @@ export type Finding = {
 
 export type OverviewData = {
   institutionName: string;
-  status: "stable" | "watch" | "elevated" | "critical";
+  status: "insufficient_data" | "stable" | "watch" | "elevated" | "critical";
   statusSummary: string;
   currentRisk: number | null;
   riskLabel: string;
-  changedCount: number;
-  findingCount: number;
-  evidenceCount: number;
+  changedCount: number | string;
+  findingCount: number | string;
+  evidenceCount: number | string;
   findings: Finding[];
 };
 
-const STATUS_LABELS = {
+const STATUS_LABELS: Record<string, string> = {
+  insufficient_data: "Insufficient Data",
   stable: "Stable",
   watch: "Watch",
   elevated: "Elevated",
   critical: "Critical",
 };
 
-const STATUS_STYLES = {
+const STATUS_STYLES: Record<string, string> = {
+  insufficient_data: "bg-[#F3EFF1] text-[#6F686B]",
   stable: "bg-[#EAF3EE] text-[#4F8068]",
   watch: "bg-[#F8EFE3] text-[#B07A3F]",
   elevated: "bg-[#F7E9EB] text-[#A94A55]",
@@ -184,7 +186,7 @@ function MiniMetric({
   icon,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   icon: React.ReactNode;
 }) {
   return (

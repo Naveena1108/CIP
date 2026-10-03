@@ -15,40 +15,77 @@ export default function DashboardPage() {
   const [data, setData] = useState<OverviewData | null>(null);
   const [technicalDetails, setTechnicalDetails] = useState<any>(null);
 
-  const institution = {
-    id: "inst-001",
-    name: "RV College of Engineering",
-    type: "Engineering Institution",
-  };
+  const [institution, setInstitution] = useState({
+    id: "",
+    name: "Institutional Workspace",
+    type: "Educational Institution",
+  });
 
   useEffect(() => {
     async function fetchIntelligence() {
       try {
         setLoading(true);
-        const token = typeof window !== "undefined" ? localStorage.getItem("cip_token") : null;
+        const token =
+          typeof window !== "undefined"
+            ? localStorage.getItem("cip_token") || localStorage.getItem("aicriss_jwt") || sessionStorage.getItem("aicriss_jwt")
+            : null;
         const headers: Record<string, string> = {
-          "Accept": "application/json",
+          Accept: "application/json",
         };
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        // Fetch institutions or assessment
+        const storedInstId =
+          typeof window !== "undefined"
+            ? localStorage.getItem("aicriss_primary_inst") || sessionStorage.getItem("aicriss_primary_inst")
+            : null;
+
+        // Fetch institutions
         const res = await fetch("/api/v1/institutions", { headers }).catch(() => null);
         if (res && res.ok) {
           const list = await res.json();
           if (Array.isArray(list) && list.length > 0) {
-            const inst = list[0];
-            // Fetch evaluation assessment
-            const evalRes = await fetch(`/api/v1/institutions/${inst.id}/evaluate`, {
-              method: "POST",
+            const inst =
+              (storedInstId && list.find((i: any) => i.id === storedInstId)) || list[0];
+
+            setInstitution({
+              id: inst.id,
+              name: inst.name || inst.id,
+              type: inst.education_entity_type || inst.entity_type || "Educational Institution",
+            });
+
+            // Fetch evaluation assessment via GET
+            const evalRes = await fetch(`/api/v1/institutions/${encodeURIComponent(inst.id)}/evaluate`, {
+              method: "GET",
               headers,
             }).catch(() => null);
 
             if (evalRes && evalRes.ok) {
               const result = await evalRes.json();
               const assessment = result.assessment || result;
-              const cri = assessment.composite_risk_index ?? 0.18;
+              const cri = assessment.composite_risk_index;
+              const hasSignals = (assessment.evidence_count && assessment.evidence_count > 0) || (assessment.anomalies_detected && assessment.anomalies_detected.length > 0) || cri > 0;
+
+              if (!hasSignals && (cri === 0 || cri === null || cri === undefined)) {
+                // Genuine insufficient data state
+                setData({
+                  institutionName: inst.name || inst.id,
+                  status: "insufficient_data",
+                  statusSummary:
+                    "No institutional analysis is available yet. Add institutional data to begin building the institution's evidence and risk picture.",
+                  currentRisk: null,
+                  riskLabel: "INSUFFICIENT DATA",
+                  changedCount: "—",
+                  findingCount: "—",
+                  evidenceCount: "—",
+                  findings: [],
+                });
+                setTechnicalDetails(null);
+                setLoading(false);
+                return;
+              }
+
               const status: "stable" | "watch" | "elevated" | "critical" =
                 cri > 0.7 ? "critical" : cri > 0.5 ? "elevated" : cri > 0.3 ? "watch" : "stable";
 
@@ -61,7 +98,7 @@ export default function DashboardPage() {
               }));
 
               setData({
-                institutionName: inst.name || "RV College of Engineering",
+                institutionName: inst.name || inst.id,
                 status,
                 statusSummary:
                   status === "stable"
@@ -77,39 +114,34 @@ export default function DashboardPage() {
               setTechnicalDetails(assessment);
               setLoading(false);
               return;
+            } else {
+              // Assessment not found or evaluation failed - render empty state
+              setData({
+                institutionName: inst.name || inst.id,
+                status: "insufficient_data",
+                statusSummary:
+                  "No institutional analysis is available yet. Ingest operational, admissions, or financial documents to evaluate risk posture.",
+                currentRisk: null,
+                riskLabel: "AWAITING INGESTION",
+                changedCount: "—",
+                findingCount: "—",
+                evidenceCount: "—",
+                findings: [],
+              });
+              setTechnicalDetails(null);
+              setLoading(false);
+              return;
             }
           }
         }
 
-        // Fallback default state grounded in institutional telemetry
-        setData({
-          institutionName: "RV College of Engineering",
-          status: "stable",
-          statusSummary:
-            "Institutional indicators are tracking within normal parameters. CET closing ranks, admissions, and faculty retention show multi-period stability.",
-          currentRisk: 0.18,
-          riskLabel: "STABLE",
-          changedCount: 0,
-          findingCount: 1,
-          evidenceCount: 12,
-          findings: [
-            {
-              id: "f-1",
-              title: "Admissions Capacity Stability",
-              summary: "Total enrollment for recent academic cycle verified at 94.2% across primary engineering branches.",
-              severity: "observation",
-              evidenceCount: 4,
-            },
-          ],
-        });
-        setTechnicalDetails({
-          cri: 0.18,
-          methodology: "Autoregressive multi-signal composite model",
-          coverage: "Admissions, Placement, NIRF, Faculty",
-          confidence: "95% statistical confidence",
-        });
+        // No institutions accessible
+        setData(null);
+        setTechnicalDetails(null);
       } catch (err) {
         console.error("Failed to load overview data:", err);
+        setData(null);
+        setTechnicalDetails(null);
       } finally {
         setLoading(false);
       }

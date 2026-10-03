@@ -7,15 +7,35 @@ export default function CockpitPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = typeof window !== "undefined" ? sessionStorage.getItem("aicriss_jwt") : null;
+    const token = typeof window !== "undefined" ? (sessionStorage.getItem("aicriss_jwt") || localStorage.getItem("aicriss_jwt")) : null;
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-    fetch("/api/v1/institutions/INST_DEMO_CAMPUS/evaluate", { headers })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) setAssessment(data);
+    const primaryInst = typeof window !== "undefined" ? (localStorage.getItem("aicriss_primary_inst") || sessionStorage.getItem("aicriss_primary_inst")) : null;
+
+    async function loadCockpit() {
+      try {
+        let instId = primaryInst;
+        if (!instId) {
+          const instRes = await fetch("/api/v1/institutions", { headers }).catch(() => null);
+          if (instRes && instRes.ok) {
+            const list = await instRes.json();
+            if (Array.isArray(list) && list.length > 0) {
+              instId = list[0].id;
+            }
+          }
+        }
+        if (instId) {
+          const res = await fetch(`/api/v1/institutions/${encodeURIComponent(instId)}/evaluate`, { headers }).catch(() => null);
+          if (res && res.ok) {
+            setAssessment(await res.json());
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    }
+    loadCockpit();
   }, []);
 
   return (

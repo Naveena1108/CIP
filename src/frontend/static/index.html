@@ -685,7 +685,7 @@
 
             <!-- Active Entity Selector -->
             <select id="activeInstitutionSelect" onchange="handleSwitchActiveInstitution(this.value)" class="text-xs font-mono px-2.5 py-1.5 cip-input" aria-label="Select Active Institution">
-                <option value="INST_DEMO_CAMPUS">Entity: INST_DEMO_CAMPUS</option>
+                <option value="">Select an Institution...</option>
             </select>
 
             <!-- Theme Selector: Light / Dark / System Default ONLY -->
@@ -746,7 +746,7 @@
         <div class="flex items-center space-x-2">
             <span id="activeOrgBadge" class="cip-badge font-mono">ORG: STANDALONE</span>
             <span id="entityClassificationBadge" class="cip-badge">Entity: Institutional Governance</span>
-            <span id="activeInstBadge" class="cip-badge font-mono">ACTIVE: INST_DEMO_CAMPUS</span>
+            <span id="activeInstBadge" class="cip-badge font-mono">ACTIVE: None</span>
         </div>
     </div>
 
@@ -762,35 +762,35 @@
                 <nav class="space-y-1" aria-label="CIP Workspace Navigation">
                     <button type="button" id="nav-overview" data-workflow="overview" onclick="navigateWorkflow('overview')" class="cip-nav-btn active">
                         <span>Overview</span>
-                        <span id="navBadgeOverview" class="text-[11px] font-mono cip-muted">Status</span>
+                        <span id="navBadgeOverview" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-investigations" data-workflow="investigations" onclick="navigateWorkflow('investigations')" class="cip-nav-btn">
                         <span>Investigate</span>
-                        <span id="navBadgeInvestigations" class="text-[11px] font-mono cip-muted">Audit</span>
+                        <span id="navBadgeInvestigations" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-insights" data-workflow="insights" onclick="navigateWorkflow('insights')" class="cip-nav-btn">
                         <span>Insights</span>
-                        <span id="navBadgeInsights" class="text-[11px] font-mono cip-muted">Signals</span>
+                        <span id="navBadgeInsights" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-risks" data-workflow="risks" onclick="navigateWorkflow('risks')" class="cip-nav-btn">
                         <span>Risk</span>
-                        <span id="navBadgeRisks" class="text-[11px] font-mono cip-muted">Stage 1</span>
+                        <span id="navBadgeRisks" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-predictions" data-workflow="predictions" onclick="navigateWorkflow('predictions')" class="cip-nav-btn">
                         <span>Forecast</span>
-                        <span id="navBadgePredictions" class="text-[11px] font-mono cip-muted">1-3Y</span>
+                        <span id="navBadgePredictions" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-whatif" data-workflow="whatif" onclick="navigateWorkflow('whatif')" class="cip-nav-btn">
                         <span>What-If</span>
-                        <span id="navBadgeWhatIf" class="text-[11px] font-mono cip-muted">Sim</span>
+                        <span id="navBadgeWhatIf" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-evidence" data-workflow="evidence" onclick="navigateWorkflow('evidence')" class="cip-nav-btn">
                         <span>Evidence</span>
-                        <span id="navBadgeEvidence" class="text-[11px] font-mono cip-muted">7-Field</span>
+                        <span id="navBadgeEvidence" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-data" data-workflow="data" onclick="navigateWorkflow('data')" class="cip-nav-btn">
                         <span id="navLabelData">Data</span>
-                        <span id="navBadgeData" class="text-[11px] font-mono cip-muted">Ingest</span>
+                        <span id="navBadgeData" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                 </nav>
 
@@ -802,15 +802,15 @@
                 <nav class="space-y-1" aria-label="CIP Context Navigation">
                     <button type="button" id="nav-osint" data-workflow="osint" onclick="navigateWorkflow('osint')" class="cip-nav-btn">
                         <span>External Context</span>
-                        <span id="navBadgeOsint" class="text-[11px] font-mono cip-muted">OSINT</span>
+                        <span id="navBadgeOsint" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-memory" data-workflow="memory" onclick="navigateWorkflow('memory')" class="cip-nav-btn">
                         <span>Historical Context</span>
-                        <span id="navBadgeMemory" class="text-[11px] font-mono cip-muted">Records</span>
+                        <span id="navBadgeMemory" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                     <button type="button" id="nav-profile" data-workflow="profile" onclick="navigateWorkflow('profile')" class="cip-nav-btn">
                         <span id="navLabelProfile">Profile</span>
-                        <span class="text-[11px] font-mono cip-muted">Entity</span>
+                        <span id="navBadgeProfile" class="text-[11px] font-mono cip-muted">—</span>
                     </button>
                 </nav>
             </div>
@@ -941,8 +941,8 @@
                         <p class="text-xs cip-muted">Evidence-grounded institutional posture, longitudinal change detection, and forward risk trajectory.</p>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <span id="riskLadderStageBadge" class="cip-badge font-mono">Stage: Observation</span>
-                        <span id="earlyWarningCountBadge" class="cip-badge font-mono">0 Early Warnings</span>
+                        <span id="riskLadderStageBadge" class="cip-badge font-mono">Stage: Insufficient Data</span>
+                        <span id="earlyWarningCountBadge" class="cip-badge font-mono">No Warnings Available</span>
                     </div>
                 </div>
 
@@ -955,28 +955,28 @@
                             </div>
                             <div class="flex flex-wrap items-center gap-3">
                                 <h2 id="oneUiStatusTitle" class="text-3xl font-semibold tracking-tight sm:text-4xl" style="color: var(--cip-text);">
-                                    Stable
+                                    Insufficient Data
                                 </h2>
-                                <span id="oneUiStatusBadge" class="rounded-full px-3 py-1 text-xs font-semibold" style="background-color: var(--cip-success-bg); color: var(--cip-success);">
-                                    Current state
+                                <span id="oneUiStatusBadge" class="rounded-full px-3 py-1 text-xs font-semibold" style="background-color: var(--cip-surface-alt); color: var(--cip-text-muted);">
+                                    Awaiting Analysis
                                 </span>
                             </div>
                             <p id="oneUiStatusSummary" class="mt-3 max-w-xl text-sm leading-6" style="color: var(--cip-text-secondary);">
-                                Institutional indicators are tracking within normal parameters. Multi-period stability verified.
+                                No institutional analysis is available yet. Add institutional data to begin building the institution's evidence and risk picture.
                             </p>
                         </div>
                         <div class="grid grid-cols-3 gap-3">
                             <div class="min-w-[84px] rounded-[18px] p-3 text-center" style="background-color: var(--cip-surface-alt);">
                                 <div class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--cip-text-muted);">Changed</div>
-                                <div id="oneUiMetricChanged" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">0</div>
+                                <div id="oneUiMetricChanged" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">—</div>
                             </div>
                             <div class="min-w-[84px] rounded-[18px] p-3 text-center" style="background-color: var(--cip-surface-alt);">
                                 <div class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--cip-text-muted);">Findings</div>
-                                <div id="oneUiMetricFindings" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">0</div>
+                                <div id="oneUiMetricFindings" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">—</div>
                             </div>
                             <div class="min-w-[84px] rounded-[18px] p-3 text-center" style="background-color: var(--cip-surface-alt);">
                                 <div class="text-[10px] font-semibold uppercase tracking-wider" style="color: var(--cip-text-muted);">Evidence</div>
-                                <div id="oneUiMetricEvidence" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">0</div>
+                                <div id="oneUiMetricEvidence" class="mt-1 text-xl font-bold font-mono" style="color: var(--cip-text);">—</div>
                             </div>
                         </div>
                     </div>
@@ -993,7 +993,7 @@
                             <div>
                                 <div class="flex justify-between text-xs mb-1">
                                     <span style="color: var(--cip-text-muted);">Now</span>
-                                    <span id="oneUiRiskNowVal" class="font-semibold font-mono">0.00</span>
+                                    <span id="oneUiRiskNowVal" class="font-semibold font-mono">—</span>
                                 </div>
                                 <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
                                     <div id="oneUiRiskNowBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
@@ -1002,7 +1002,7 @@
                             <div>
                                 <div class="flex justify-between text-xs mb-1">
                                     <span style="color: var(--cip-text-muted);">1Y</span>
-                                    <span id="oneUiRisk1YVal" class="font-semibold font-mono">0.00</span>
+                                    <span id="oneUiRisk1YVal" class="font-semibold font-mono">—</span>
                                 </div>
                                 <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
                                     <div id="oneUiRisk1YBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
@@ -1011,7 +1011,7 @@
                             <div>
                                 <div class="flex justify-between text-xs mb-1">
                                     <span style="color: var(--cip-text-muted);">2Y</span>
-                                    <span id="oneUiRisk2YVal" class="font-semibold font-mono">0.00</span>
+                                    <span id="oneUiRisk2YVal" class="font-semibold font-mono">—</span>
                                 </div>
                                 <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
                                     <div id="oneUiRisk2YBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
@@ -1020,7 +1020,7 @@
                             <div>
                                 <div class="flex justify-between text-xs mb-1">
                                     <span style="color: var(--cip-text-muted);">3Y</span>
-                                    <span id="oneUiRisk3YVal" class="font-semibold font-mono">0.00</span>
+                                    <span id="oneUiRisk3YVal" class="font-semibold font-mono">—</span>
                                 </div>
                                 <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--cip-surface-hover);">
                                     <div id="oneUiRisk3YBar" class="h-full rounded-full transition-all duration-500" style="background-color: var(--cip-primary); width: 0%;"></div>
@@ -1084,7 +1084,7 @@
                         <div class="relative w-44 h-44 mx-auto my-4 flex items-center justify-center">
                             <canvas id="criDialChart" width="176" height="176"></canvas>
                             <div class="absolute flex flex-col items-center">
-                                <span id="criValue" class="text-2xl font-bold font-mono">0.000</span>
+                                <span id="criValue" class="text-2xl font-bold font-mono">—</span>
                                 <span class="text-[10px] font-mono cip-muted">OVERALL RISK</span>
                                 <span id="riskBadge" class="mt-1 cip-badge font-mono uppercase">AWAITING DATA</span>
                             </div>
@@ -1093,11 +1093,11 @@
                         <div class="space-y-2 pt-3 border-t text-xs" style="border-color: var(--cip-border);">
                             <div class="flex justify-between">
                                 <span class="cip-muted">Active Entity ID:</span>
-                                <span id="instIdText" class="font-mono font-semibold">INST_DEMO_CAMPUS</span>
+                                <span id="instIdText" class="font-mono font-semibold">—</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="cip-muted">Primary Driving Signal:</span>
-                                <span id="threatText" class="font-semibold">None Detected</span>
+                                <span id="threatText" class="font-semibold">Awaiting Ingestion</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="cip-muted">Statistical Confidence:</span>
@@ -2114,7 +2114,7 @@
     <script>
         let criChart, temporalChart, riskComparisonChart;
         let authToken = null;
-        let currentInstitutionId = 'INST_DEMO_CAMPUS';
+        let currentInstitutionId = '';
         let currentOrganizationId = null;
         let currentViewMode = 'institution';
         let currentUserRole = 'Auditor';
@@ -2849,7 +2849,9 @@
                 if (!sel || !Array.isArray(list)) return;
                 sel.innerHTML = '';
                 if (list.length === 0) {
-                    sel.innerHTML = `<option value="${currentInstitutionId}">Entity: ${currentInstitutionId}</option>`;
+                    sel.innerHTML = `<option value="">No institutions accessible</option>`;
+                    currentInstitutionId = '';
+                    resetHeroToEmptyState('No accessible institutions found for your account.');
                     return;
                 }
                 list.forEach(inst => {
@@ -2859,9 +2861,16 @@
                     opt.innerText = `${inst.name} (${inst.id}) [${labelType}]`;
                     sel.appendChild(opt);
                 });
-                const matched = list.find(i => i.id === currentInstitutionId) || list[0];
+                const storedInst = localStorage.getItem('aicriss_primary_inst') || sessionStorage.getItem('aicriss_primary_inst');
+                const matched = (currentInstitutionId && list.find(i => i.id === currentInstitutionId))
+                    || (storedInst && list.find(i => i.id === storedInst))
+                    || list[0];
                 currentInstitutionId = matched.id;
                 sel.value = currentInstitutionId;
+                const activeBadge = document.getElementById('activeInstBadge');
+                if (activeBadge) activeBadge.innerText = `ACTIVE: ${currentInstitutionId}`;
+                const instIdText = document.getElementById('instIdText');
+                if (instIdText) instIdText.innerText = currentInstitutionId;
                 if (matched.organization_id) {
                     currentOrganizationId = matched.organization_id;
                     const orgBadge = document.getElementById('activeOrgBadge');
@@ -3868,9 +3877,11 @@
                     const sigBox = document.getElementById('discoveredSignalsList');
                     const domBadge = document.getElementById('discoveredDomainsBadge');
                     const navDataBadge = document.getElementById('navBadgeData');
+                    const navInsBadge = document.getElementById('navBadgeInsights');
                     const domains = Array.from(new Set(signals.map(s => s.domain)));
                     if (domBadge) domBadge.innerText = `${domains.length} Domains (${signals.length} Signals)`;
-                    if (navDataBadge) navDataBadge.innerText = `${signals.length} Sig`;
+                    if (navDataBadge) navDataBadge.innerText = `${signals.length} Ingested`;
+                    if (navInsBadge) navInsBadge.innerText = `${signals.length} Signals`;
                     if (sigBox) {
                         if (!signals.length) {
                             sigBox.innerHTML = `<p class="cip-muted">No dynamic signals ingested yet for ${targetId}. Use "Add Data" to upload files.</p>`;
@@ -3903,6 +3914,12 @@
                 }
                 window.hasIngestedSignalsForActiveInst = hasAnySignals;
                 if (!hasAnySignals) {
+                    const navDataBadge = document.getElementById('navBadgeData');
+                    if (navDataBadge) navDataBadge.innerText = '0 Ingested';
+                    const navInsBadge = document.getElementById('navBadgeInsights');
+                    if (navInsBadge) navInsBadge.innerText = '—';
+                    const navRiskBadge = document.getElementById('navBadgeRisks');
+                    if (navRiskBadge) navRiskBadge.innerText = '—';
                     return;
                 }
                 const intelRes = await authFetch(`/api/v1/institutions/${encodeURIComponent(targetId)}/intelligence`);
@@ -3922,7 +3939,7 @@
                         if (navRiskBadge) navRiskBadge.innerText = intel.risk_progression.overall_institutional_stage;
                     }
                     if (ewBadge && intel.early_warnings) {
-                        ewBadge.innerText = `${intel.early_warnings.length} Early Warnings`;
+                        ewBadge.innerText = intel.early_warnings.length === 0 ? '0 Early Warnings' : `${intel.early_warnings.length} Early Warnings`;
                     }
                     if (rpBox && intel.risk_progression) {
                         const sc = intel.risk_progression.stage_counts || {};
@@ -3965,19 +3982,131 @@
             }
         }
 
+        function resetHeroToEmptyState(reason) {
+            const heroTitle = document.getElementById('oneUiStatusTitle');
+            if (heroTitle) heroTitle.innerText = 'Insufficient Data';
+            const heroBadge = document.getElementById('oneUiStatusBadge');
+            if (heroBadge) {
+                heroBadge.innerText = 'Awaiting Analysis';
+                heroBadge.style.backgroundColor = 'var(--cip-surface-alt)';
+                heroBadge.style.color = 'var(--cip-text-muted)';
+            }
+            const heroSum = document.getElementById('oneUiStatusSummary');
+            if (heroSum) {
+                heroSum.innerText = reason || "No institutional analysis is available yet. Add institutional data to begin building the institution's evidence and risk picture.";
+            }
+
+            const mChanged = document.getElementById('oneUiMetricChanged');
+            if (mChanged) mChanged.innerText = '—';
+            const mFindings = document.getElementById('oneUiMetricFindings');
+            if (mFindings) mFindings.innerText = '—';
+            const mEvidence = document.getElementById('oneUiMetricEvidence');
+            if (mEvidence) mEvidence.innerText = '—';
+
+            const rNowVal = document.getElementById('oneUiRiskNowVal');
+            if (rNowVal) rNowVal.innerText = '—';
+            const rNowBar = document.getElementById('oneUiRiskNowBar');
+            if (rNowBar) rNowBar.style.width = '0%';
+
+            const r1Val = document.getElementById('oneUiRisk1YVal');
+            if (r1Val) r1Val.innerText = '—';
+            const r1Bar = document.getElementById('oneUiRisk1YBar');
+            if (r1Bar) r1Bar.style.width = '0%';
+
+            const r2Val = document.getElementById('oneUiRisk2YVal');
+            if (r2Val) r2Val.innerText = '—';
+            const r2Bar = document.getElementById('oneUiRisk2YBar');
+            if (r2Bar) r2Bar.style.width = '0%';
+
+            const r3Val = document.getElementById('oneUiRisk3YVal');
+            if (r3Val) r3Val.innerText = '—';
+            const r3Bar = document.getElementById('oneUiRisk3YBar');
+            if (r3Bar) r3Bar.style.width = '0%';
+
+            const stageBadge = document.getElementById('riskLadderStageBadge');
+            if (stageBadge) stageBadge.innerText = 'Stage: Insufficient Data';
+            const ewBadge = document.getElementById('earlyWarningCountBadge');
+            if (ewBadge) ewBadge.innerText = 'No Warnings Available';
+
+            const criVal = document.getElementById('criValue');
+            if (criVal) criVal.innerText = '—';
+            const riskBadge = document.getElementById('riskBadge');
+            if (riskBadge) riskBadge.innerText = 'NO DATA YET';
+            const threatText = document.getElementById('threatText');
+            if (threatText) threatText.innerText = 'Awaiting Ingestion';
+            const confText = document.getElementById('confText');
+            if (confText) confText.innerText = '—';
+
+            const ov1 = document.getElementById('ovWhatIsHappening');
+            if (ov1) ov1.innerText = 'No institutional analysis has been computed because this workspace does not contain sufficient ingested signal records.';
+            const ov2 = document.getElementById('ovWhatChanged');
+            if (ov2) ov2.innerText = 'No longitudinal change detection is available without multi-period baseline data.';
+            const ov3 = document.getElementById('ovWhatNeedsAttention');
+            if (ov3) ov3.innerText = 'No priority operational concerns flagged. Awaiting institutional telemetry.';
+            const ov4 = document.getElementById('ovSupportingEvidence');
+            if (ov4) ov4.innerText = 'No verified evidence records loaded. Ingest institutional documents in the Data workflow.';
+            const ov5 = document.getElementById('ovWhatCouldHappenNext');
+            if (ov5) ov5.innerText = 'Trajectory forecasting requires at least 2 historical academic periods.';
+
+            const execBox = document.getElementById('execSummaryBox');
+            if (execBox) {
+                execBox.innerHTML = `
+                    <div class="p-3 cip-subcard">
+                        <strong>[AWAITING INSTITUTIONAL DATA]</strong>
+                        <p class="leading-relaxed mt-1">
+                            ${reason || "Workspace has no ingested signal records yet. Use 'Add Data' to upload admissions, placement, or financial documents to initialize evidence synthesis."}
+                        </p>
+                    </div>
+                `;
+            }
+
+            const anomalyList = document.getElementById('anomalyList');
+            if (anomalyList) {
+                anomalyList.innerHTML = `<div class="p-3 cip-subcard">No signal records or anomalies detected. Awaiting institutional data ingestion.</div>`;
+            }
+            const anomBadge = document.getElementById('anomalyCountBadge');
+            if (anomBadge) anomBadge.innerText = '0 Flags';
+
+            const emptyChart = document.getElementById('temporalChartEmptyState');
+            if (emptyChart) emptyChart.classList.remove('hidden');
+
+            if (criChart && criChart.data && criChart.data.datasets && criChart.data.datasets[0]) {
+                criChart.data.datasets[0].data = [0, 1];
+                criChart.update();
+            }
+
+            const navOverview = document.getElementById('navBadgeOverview');
+            if (navOverview) navOverview.innerText = '—';
+            const navInv = document.getElementById('navBadgeInvestigations');
+            if (navInv) navInv.innerText = '—';
+            const navIns = document.getElementById('navBadgeInsights');
+            if (navIns) navIns.innerText = '—';
+            const navRisk = document.getElementById('navBadgeRisks');
+            if (navRisk) navRisk.innerText = '—';
+            const navPred = document.getElementById('navBadgePredictions');
+            if (navPred) navPred.innerText = '—';
+            const navWhatIf = document.getElementById('navBadgeWhatIf');
+            if (navWhatIf) navWhatIf.innerText = '—';
+            const navEv = document.getElementById('navBadgeEvidence');
+            if (navEv) navEv.innerText = '—';
+            const navMem = document.getElementById('navBadgeMemory');
+            if (navMem) navMem.innerText = '—';
+        }
+
         async function triggerEvaluation(instId) {
             const targetId = instId || currentInstitutionId;
             currentInstitutionId = targetId;
+            if (!targetId) {
+                resetHeroToEmptyState('No institution selected.');
+                setBanner('Select an institution to inspect evidence-grounded intelligence.');
+                return;
+            }
             try {
                 await loadDiscoveredSignalsAndQuality(targetId);
                 if (window.hasIngestedSignalsForActiveInst === false) {
-                    document.getElementById('instIdText').innerText = targetId;
-                    document.getElementById('criValue').innerText = '—';
-                    document.getElementById('riskBadge').innerText = 'NO DATA YET';
-                    document.getElementById('threatText').innerText = 'Awaiting Data Ingestion';
-                    document.getElementById('confText').innerText = '—';
-                    const emptyChart = document.getElementById('temporalChartEmptyState');
-                    if (emptyChart) emptyChart.classList.remove('hidden');
+                    const instEl = document.getElementById('instIdText');
+                    if (instEl) instEl.innerText = targetId;
+                    resetHeroToEmptyState(`Workspace '${targetId}' has no ingested signal records yet. Use "Add Data" to upload institutional files.`);
                     setBanner(`Workspace '${targetId}' has no ingested signal records yet. Use "Add Data" to upload institutional files.`);
                     await loadPhase4ForecastAndMemory(targetId);
                     await renderOverviewRiskTrend(targetId);
@@ -3986,14 +4115,10 @@
                 }
                 const evalRes = await authFetch(`/api/v1/institutions/${encodeURIComponent(targetId)}/evaluate`);
                 if (evalRes.status === 404) {
-                    document.getElementById('instIdText').innerText = targetId;
-                    document.getElementById('criValue').innerText = '—';
-                    document.getElementById('riskBadge').innerText = 'NO DATA YET';
-                    document.getElementById('threatText').innerText = 'Awaiting Data Ingestion';
-                    document.getElementById('confText').innerText = '—';
-                    const emptyChart = document.getElementById('temporalChartEmptyState');
-                    if (emptyChart) emptyChart.classList.remove('hidden');
-                    setBanner(`Workspace '${targetId}' has no ingested signal records yet. Use "Add Data" to upload institutional files.`);
+                    const instEl = document.getElementById('instIdText');
+                    if (instEl) instEl.innerText = targetId;
+                    resetHeroToEmptyState(`Workspace '${targetId}' has no evaluated crisis assessment records yet. Ingest institutional data to initialize analysis.`);
+                    setBanner(`Workspace '${targetId}' has no evaluated crisis assessment records yet.`);
                     await loadPhase4ForecastAndMemory(targetId);
                     await renderOverviewRiskTrend(targetId);
                     await loadInstitutionDatasets(targetId);
@@ -4003,15 +4128,27 @@
                     setBanner(`Evaluation returned HTTP ${evalRes.status} for ${targetId}.`);
                     return;
                 }
-                const emptyChart = document.getElementById('temporalChartEmptyState');
-                if (emptyChart) emptyChart.classList.add('hidden');
 
                 const assessment = await evalRes.json();
                 const cri = assessment.composite_risk_index;
+                const hasSignals = (assessment.evidence_count && assessment.evidence_count > 0) || (assessment.anomalies_detected && assessment.anomalies_detected.length > 0) || cri > 0;
+
+                if (!hasSignals && (cri === 0 || cri === null || cri === undefined)) {
+                    resetHeroToEmptyState(`Workspace '${targetId}' has insufficient baseline signals to calculate verified risk posture.`);
+                    setBanner(`Workspace '${targetId}' has insufficient baseline signals to calculate verified risk posture.`);
+                    await loadPhase4ForecastAndMemory(targetId);
+                    await renderOverviewRiskTrend(targetId);
+                    await loadInstitutionDatasets(targetId);
+                    return;
+                }
+
+                const emptyChart = document.getElementById('temporalChartEmptyState');
+                if (emptyChart) emptyChart.classList.add('hidden');
+
                 document.getElementById('instIdText').innerText = assessment.institution_id;
                 document.getElementById('criValue').innerText = cri.toFixed(3);
-                document.getElementById('threatText').innerText = assessment.primary_driving_signal;
-                document.getElementById('confText').innerText = `${(assessment.confidence_score * 100).toFixed(1)}%`;
+                document.getElementById('threatText').innerText = assessment.primary_driving_signal || 'None Detected';
+                document.getElementById('confText').innerText = `${(((assessment.confidence_score !== undefined ? assessment.confidence_score : 0.95)) * 100).toFixed(1)}%`;
 
                 const execBox = document.getElementById('execSummaryBox');
                 if (execBox) {
@@ -4088,6 +4225,11 @@
                 if (rNowVal) rNowVal.innerText = cri.toFixed(2);
                 const rNowBar = document.getElementById('oneUiRiskNowBar');
                 if (rNowBar) rNowBar.style.width = `${clampPct(cri)}%`;
+
+                const navOverviewBadge = document.getElementById('navBadgeOverview');
+                if (navOverviewBadge) navOverviewBadge.innerText = statusStr;
+                const navInvBadge = document.getElementById('navBadgeInvestigations');
+                if (navInvBadge) navInvBadge.innerText = `${assessment.anomalies_detected ? assessment.anomalies_detected.length : 0} Findings`;
 
                 // Populate Detailed Insights & Risks Workflows
                 renderMajorInsightsAndRisks(assessment, window.cachedIntelReport);
@@ -4376,29 +4518,43 @@
                     if (fcBadge) fcBadge.innerText = `Forecast: ${fc.status}`;
 
                     // Update One UI Risk Outlook Timeline with deterministic forecast
-                    if (Array.isArray(fc.prediction)) {
+                    if (fc.status === 'INSUFFICIENT_EVIDENCE' || !Array.isArray(fc.prediction) || fc.prediction.length === 0) {
+                        const r1Val = document.getElementById('oneUiRisk1YVal');
+                        if (r1Val) r1Val.innerText = '—';
+                        const r1Bar = document.getElementById('oneUiRisk1YBar');
+                        if (r1Bar) r1Bar.style.width = '0%';
+                        const r2Val = document.getElementById('oneUiRisk2YVal');
+                        if (r2Val) r2Val.innerText = '—';
+                        const r2Bar = document.getElementById('oneUiRisk2YBar');
+                        if (r2Bar) r2Bar.style.width = '0%';
+                        const r3Val = document.getElementById('oneUiRisk3YVal');
+                        if (r3Val) r3Val.innerText = '—';
+                        const r3Bar = document.getElementById('oneUiRisk3YBar');
+                        if (r3Bar) r3Bar.style.width = '0%';
+                        const navPredBadge = document.getElementById('navBadgePredictions');
+                        if (navPredBadge) navPredBadge.innerText = 'No Horizon';
+                    } else {
                         const clampPct = (val) => Math.min(100, Math.max(0, Math.round((val || 0) * 100)));
                         const p1 = fc.prediction.find(p => p.year_offset === 1);
-                        if (p1) {
-                            const r1Val = document.getElementById('oneUiRisk1YVal');
-                            if (r1Val) r1Val.innerText = p1.projected_cri.toFixed(2);
-                            const r1Bar = document.getElementById('oneUiRisk1YBar');
-                            if (r1Bar) r1Bar.style.width = `${clampPct(p1.projected_cri)}%`;
-                        }
+                        const r1Val = document.getElementById('oneUiRisk1YVal');
+                        const r1Bar = document.getElementById('oneUiRisk1YBar');
+                        if (r1Val) r1Val.innerText = p1 ? p1.projected_cri.toFixed(2) : '—';
+                        if (r1Bar) r1Bar.style.width = p1 ? `${clampPct(p1.projected_cri)}%` : '0%';
+
                         const p2 = fc.prediction.find(p => p.year_offset === 2);
-                        if (p2) {
-                            const r2Val = document.getElementById('oneUiRisk2YVal');
-                            if (r2Val) r2Val.innerText = p2.projected_cri.toFixed(2);
-                            const r2Bar = document.getElementById('oneUiRisk2YBar');
-                            if (r2Bar) r2Bar.style.width = `${clampPct(p2.projected_cri)}%`;
-                        }
+                        const r2Val = document.getElementById('oneUiRisk2YVal');
+                        const r2Bar = document.getElementById('oneUiRisk2YBar');
+                        if (r2Val) r2Val.innerText = p2 ? p2.projected_cri.toFixed(2) : '—';
+                        if (r2Bar) r2Bar.style.width = p2 ? `${clampPct(p2.projected_cri)}%` : '0%';
+
                         const p3 = fc.prediction.find(p => p.year_offset === 3);
-                        if (p3) {
-                            const r3Val = document.getElementById('oneUiRisk3YVal');
-                            if (r3Val) r3Val.innerText = p3.projected_cri.toFixed(2);
-                            const r3Bar = document.getElementById('oneUiRisk3YBar');
-                            if (r3Bar) r3Bar.style.width = `${clampPct(p3.projected_cri)}%`;
-                        }
+                        const r3Val = document.getElementById('oneUiRisk3YVal');
+                        const r3Bar = document.getElementById('oneUiRisk3YBar');
+                        if (r3Val) r3Val.innerText = p3 ? p3.projected_cri.toFixed(2) : '—';
+                        if (r3Bar) r3Bar.style.width = p3 ? `${clampPct(p3.projected_cri)}%` : '0%';
+
+                        const navPredBadge = document.getElementById('navBadgePredictions');
+                        if (navPredBadge) navPredBadge.innerText = '1–3Y Proj';
                     }
 
                     if (fcBox) {
@@ -4926,7 +5082,7 @@
         // WORKFLOW 11: GLOBAL & OSINT CRISIS INTELLIGENCE DASHBOARD
         // =========================================================================
         async function loadOSINTDashboard() {
-            const instParam = encodeURIComponent(currentInstitutionId || 'INST_DEMO_CAMPUS');
+            const instParam = encodeURIComponent(currentInstitutionId || '');
             const orgParam = currentOrganizationId ? `&organization_id=${encodeURIComponent(currentOrganizationId)}` : '';
             try {
                 const dashRes = await authFetch(`/api/v1/osint/dashboard?institution_id=${instParam}${orgParam}`);

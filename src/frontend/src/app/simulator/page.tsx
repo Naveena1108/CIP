@@ -1,17 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function SimulatorPage() {
   const [placementBoost, setPlacementBoost] = useState(5.0);
   const [vacancyReduction, setVacancyReduction] = useState(8.0);
   const [projection, setProjection] = useState<any>(null);
+  const [institutionId, setInstitutionId] = useState("");
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? (sessionStorage.getItem("aicriss_jwt") || localStorage.getItem("aicriss_jwt")) : null;
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    const primaryInst = typeof window !== "undefined" ? (localStorage.getItem("aicriss_primary_inst") || sessionStorage.getItem("aicriss_primary_inst")) : null;
+
+    if (primaryInst) {
+      setInstitutionId(primaryInst);
+    } else {
+      fetch("/api/v1/institutions", { headers })
+        .then((r) => (r.ok ? r.json() : []))
+        .then((list) => {
+          if (Array.isArray(list) && list.length > 0) {
+            setInstitutionId(list[0].id);
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
 
   const runSimulation = async () => {
+    if (!institutionId) return;
     const token = typeof window !== "undefined" ? sessionStorage.getItem("aicriss_jwt") : null;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch("/api/v1/institutions/INST_DEMO_CAMPUS/simulate", {
+    const res = await fetch(`/api/v1/institutions/${encodeURIComponent(institutionId)}/simulate`, {
       method: "POST",
       headers,
       body: JSON.stringify({

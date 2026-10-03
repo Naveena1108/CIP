@@ -2912,11 +2912,8 @@
                     return false;
                 }
                 if (data && data.status === 'AWAITING_OTP') {
-                    if (window.navigator && window.navigator.webdriver && data.access_token) {
-                        return await establishUiSession(data, payload.email);
-                    }
                     statusBox.innerText = `Account created. Verification OTP dispatched to ${payload.email}.`;
-                    showOtpScreen(payload.email, 'SIGNUP');
+                    showOtpScreen(payload.email, 'signup');
                     return true;
                 }
                 statusBox.innerText = `Account created for ${payload.email}. Opening entity onboarding...`;
@@ -3896,11 +3893,8 @@
 
                 const loginData = await loginRes.json();
                 if (loginData.status === 'AWAITING_OTP') {
-                    if (window.navigator && window.navigator.webdriver && loginData.access_token) {
-                        return await establishUiSession(loginData, email);
-                    }
                     statusBox.innerText = `Verification code sent to ${email}.`;
-                    showOtpScreen(email, 'LOGIN');
+                    showOtpScreen(email, 'login');
                     return true;
                 }
 
@@ -5733,7 +5727,7 @@
 
         function showOtpScreen(email, purpose) {
             otpState.email = email;
-            otpState.purpose = purpose || 'LOGIN';
+            otpState.purpose = (purpose || 'login').toLowerCase();
             const targetEl = document.getElementById('otpTargetEmail');
             if (targetEl) targetEl.innerText = email;
 
@@ -5863,7 +5857,7 @@
                 const res = await fetch('/api/v1/auth/otp/resend', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: otpState.email, purpose: otpState.purpose })
+                    body: JSON.stringify({ email: otpState.email, purpose: (otpState.purpose || 'login').toLowerCase() })
                 });
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok) {
@@ -5930,8 +5924,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         email: otpState.email,
+                        otp: code,
                         otp_code: code,
-                        purpose: otpState.purpose
+                        purpose: (otpState.purpose || 'login').toLowerCase()
                     })
                 });
                 const data = await res.json().catch(() => ({}));

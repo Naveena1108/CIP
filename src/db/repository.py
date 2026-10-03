@@ -18,6 +18,7 @@ from src.db.models import (
     CrisisAssessmentModel,
     UserModel,
     OTPVerificationModel,
+    RevokedTokenModel,
     DiscoveredSignalModel,
     IngestionRecordModel,
     InstitutionalMemoryEntryModel,
@@ -1058,6 +1059,46 @@ class OTPRepository:
             await session.flush()
         return len(records)
 
+
+class RevokedTokenRepository:
+    """
+    Persisted revoked JWT token registry for immediate server-side logout enforcement.
+    Backed by the revoked_tokens database table.
+    """
+
+    @staticmethod
+    async def revoke_token(
+        session: AsyncSession,
+        token: str,
+        expires_at: Optional[datetime] = None,
+    ) -> RevokedTokenModel:
+        import hashlib
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        stmt = select(RevokedTokenModel).where(RevokedTokenModel.id == token_hash)
+        existing = (await session.execute(stmt)).scalar_one_or_none()
+        if existing:
+            return existing
+
+        rec = RevokedTokenModel(
+            id=token_hash,
+            token=token[-32:],
+            revoked_at=datetime.now(timezone.utc),
+            expires_at=expires_at,
+        )
+        session.add(rec)
+        await session.flush()
+        return rec
+
+    @staticmethod
+    async def is_token_revoked(
+        session: AsyncSession,
+        token: str,
+    ) -> bool:
+        import hashlib
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        stmt = select(RevokedTokenModel).where(RevokedTokenModel.id == token_hash)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none() is not None
 
 
 class DiscoveredSignalRepository:

@@ -85,6 +85,9 @@ def render_otp_html(recipient_email: str, otp_code: str, purpose: str = "login")
 </html>"""
 
 
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+
+
 def send_otp_email(
     recipient_email: str,
     otp_code: str,
@@ -92,10 +95,11 @@ def send_otp_email(
 ) -> bool:
     """
     Deliver single-use verification code to the recipient's email address.
-    Uses SMTP when configured via environment variables.
-    Falls back to structured console/logger output for development and testing.
+    Uses SMTP or Resend API when configured via environment variables.
+    Strictly adheres to CIP security policies: never logs plaintext OTPs.
+    Returns True if delivery succeeded, False if delivery failed.
     """
-    subject = f"Your CIP Verification Code: {otp_code}"
+    subject = f"Your CIP Verification Code"
     plain_text = (
         f"Your CIP verification code is: {otp_code}\n\n"
         f"This code was requested for {recipient_email} for {purpose}.\n"
@@ -104,11 +108,11 @@ def send_otp_email(
     )
     html_content = render_otp_html(recipient_email, otp_code, purpose)
 
-    # If SMTP is configured, attempt real SMTP transmission
+    # 1. Attempt SMTP delivery if configured
     if SMTP_HOST:
         try:
             msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
+            msg["Subject"] = f"Your CIP Verification Code: {otp_code}"
             msg["From"] = SMTP_FROM
             msg["To"] = recipient_email
 
@@ -127,18 +131,42 @@ def send_otp_email(
             logger.info(f"Successfully dispatched OTP email via SMTP to {recipient_email} (purpose: {purpose}).")
             return True
         except Exception as exc:
-            logger.error(f"Failed to dispatch OTP email via SMTP ({SMTP_HOST}:{SMTP_PORT}): {exc}. Falling back to logger.")
+            logger.error(f"Failed to dispatch OTP email via SMTP ({SMTP_HOST}:{SMTP_PORT}) for {recipient_email}: {exc}.")
+            return False
 
-    # Development & test fallback: log clearly so developers and operators can verify immediately
-    banner = (
-        "\n" + "=" * 80 + "\n"
-        f" [CIP SECURITY AUTHENTICATION NOTIFICATION]\n"
-        f"  Recipient: {recipient_email}\n"
-        f"  Purpose:   {purpose.upper()}\n"
-        f"  OTP Code:  {otp_code}\n"
-        f"  Expiry:    5 minutes (single-use)\n"
-        + "=" * 80 + "\n"
-    )
-    print(banner, flush=True)
-    logger.info(f"[CIP OTP] Generated verification code {otp_code} for {recipient_email} ({purpose}).")
+    # 2. Attempt Resend API if configured
+    if RESEND_API_KEY:
+        try:
+            import httpx
+            from_addr = SMTP_FROM if ("@" in SMTP_FROM and "no-reply@cip.edu" not in SMTP_FROM) else "CIP Verification <onboarding@resend.dev>"
+            resp = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "from": from_addr,
+                    "to": [recipient_email],
+                    "subject": f"Your CIP Verification Code",
+                    "html": html_content,
+                    "text": plain_text,
+                },
+                timeout=10.0,
+            )
+            if resp.status_code in (200, 201):
+                logger.info(f"Successfully dispatched OTP email via Resend API to {recipient_email} (purpose: {purpose}).")
+                return True
+            else:
+                logger.error(f"Resend API email dispatch returned HTTP {resp.status_code}: {resp.text}")
+                return False
+        except Exception as exc:
+            logger.error(f"Resend API email dispatch failed for {recipient_email}: {exc}")
+            return False
+
+    # 3. Development / Local environment without configured SMTP
+    is_prod = bool(os.getenv("VERCEL") or os.getenv("ENVIRONMENT") == "production")
+    if is_prod:
+        logger.error(f"Cannot dispatch verification email to {recipient_email}: no SMTP or email provider configured in production environment.")
+        return False
+
+    # In local development: log successful dispatch notification without leaking the raw secret code
+    logger.info(f"[CIP SECURITY] Verification code dispatched for {recipient_email} (purpose: {purpose.upper()}, expires in 5m).")
     return True

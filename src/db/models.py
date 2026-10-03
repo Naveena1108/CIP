@@ -220,6 +220,25 @@ class OTPVerificationModel(Base):
     )
 
 
+class RevokedTokenModel(Base):
+    """
+    Persisted revoked JWT token registry for immediate server-side logout enforcement.
+    Prevents reuse of revoked tokens even across serverless worker restarts.
+    """
+    __tablename__ = "revoked_tokens"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # sha256 token hash
+    revoked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("idx_revoked_tokens_exp", "expires_at"),
+    )
+
+
 class DiscoveredSignalModel(Base):
     """
     Persists dynamically discovered signals across all institutional domains with

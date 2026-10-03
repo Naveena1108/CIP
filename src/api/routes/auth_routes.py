@@ -6,6 +6,7 @@ Session Logout, and Post-Authentication Entity Onboarding.
 
 import hashlib
 import json
+import os
 import secrets
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -26,6 +27,7 @@ from src.db.repository import (
     OrganizationRepository,
     UserRepository,
     OTPRepository,
+    RevokedTokenRepository,
 )
 from src.services.email_service import send_otp_email
 from src.db.models import UserModel
@@ -96,22 +98,39 @@ class OTPChallengeResponse(BaseModel):
     purpose: Literal["login", "signup", "reset_password"]
     expires_in_seconds: int = 300
     resend_cooldown_seconds: int = 60
-    access_token: Optional[str] = None
-    token_type: Optional[str] = "bearer"
-    onboarding_required: Optional[bool] = True
-    role: Optional[str] = "Auditor"
-    user_id: Optional[str] = None
 
 
 class OTPVerifyRequest(BaseModel):
     email: EmailStr
-    otp: str = Field(..., min_length=6, max_length=6)
-    purpose: Literal["login", "signup", "reset_password"] = "login"
+    otp: Optional[str] = None
+    otp_code: Optional[str] = None
+    purpose: str = "login"
+
+    @model_validator(mode="after")
+    def validate_code_and_purpose(self) -> "OTPVerifyRequest":
+        code = (self.otp or self.otp_code or "").strip()
+        if len(code) != 6 or not code.isdigit():
+            raise ValueError("Verification code must be exactly 6 numeric digits.")
+        self.otp = code
+        self.otp_code = code
+        p = (self.purpose or "login").strip().lower()
+        if p not in ("login", "signup", "reset_password"):
+            p = "login"
+        self.purpose = p
+        return self
 
 
 class OTPResendRequest(BaseModel):
     email: EmailStr
-    purpose: Literal["login", "signup", "reset_password"] = "login"
+    purpose: str = "login"
+
+    @model_validator(mode="after")
+    def validate_purpose(self) -> "OTPResendRequest":
+        p = (self.purpose or "login").strip().lower()
+        if p not in ("login", "signup", "reset_password"):
+            p = "login"
+        self.purpose = p
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -669,7 +688,7 @@ async def login_json(
             organization_id=user.organization_id,
         )
 
-    # Standard Phase 2 flow: Generate 6-digit OTP, hash, persist, and dispatch
+    # Standard Phase 3 flow: Generate 6-digit OTP, hash, persist, and dispatch
     otp_code = generate_secure_otp()
     otp_hash = hash_otp_code(otp_code)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
@@ -681,16 +700,13 @@ async def login_json(
         expires_at=expires_at,
         user_id=user.id,
     )
-    send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="login")
-    token_str = create_access_token(
-        user.id,
-        user.email,
-        user.role,
-        primary_institution_id=user.primary_institution_id,
-        organization_id=user.organization_id,
-        onboarding_completed=bool(user.onboarding_completed),
-        full_name=user.full_name,
-    )
+    sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="login")
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    if not sent and (env in ("production", "staging") or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
+        )
     return OTPChallengeResponse(
         status="AWAITING_OTP",
         message="A single-use 6-digit verification code has been dispatched to your email.",
@@ -698,11 +714,7 @@ async def login_json(
         purpose="login",
         expires_in_seconds=300,
         resend_cooldown_seconds=60,
-        access_token=token_str,
-        token_type="bearer",
         onboarding_required=not bool(user.onboarding_completed),
-        role=user.role,
-        user_id=user.id,
     )
 
 
@@ -738,7 +750,8 @@ async def signup(
         department_or_unit=req.department_or_unit,
         onboarding_completed=False,
     )
-    if req.skip_otp:
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    if req.skip_otp and env not in ("production", "staging"):
         user.is_verified = True
         await session.flush()
         token_str = create_access_token(
@@ -778,16 +791,12 @@ async def signup(
         expires_at=expires_at,
         user_id=user.id,
     )
-    send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="signup")
-    token_str = create_access_token(
-        user.id,
-        user.email,
-        user.role,
-        primary_institution_id=user.primary_institution_id,
-        organization_id=user.organization_id,
-        onboarding_completed=False,
-        full_name=user.full_name,
-    )
+    sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="signup")
+    if not sent and (env in ("production", "staging") or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
+        )
     return OTPChallengeResponse(
         status="AWAITING_OTP",
         message="A single-use 6-digit verification code has been dispatched to your email.",
@@ -795,11 +804,7 @@ async def signup(
         purpose="signup",
         expires_in_seconds=300,
         resend_cooldown_seconds=60,
-        access_token=token_str,
-        token_type="bearer",
         onboarding_required=True,
-        role=user.role,
-        user_id=user.id,
     )
 
 
@@ -938,7 +943,13 @@ async def resend_otp(
         expires_at=expires_at,
         user_id=user.id,
     )
-    send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose=req.purpose)
+    sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose=req.purpose)
+    env = os.environ.get("ENVIRONMENT", "development").lower()
+    if not sent and (env in ("production", "staging") or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
+        )
     return {
         "status": "SENT",
         "message": "A new verification code has been dispatched to your email.",
@@ -1047,9 +1058,11 @@ async def get_me(current_user: UserModel = Depends(get_current_user)):
 async def logout(
     token: str = Depends(oauth2_scheme),
     current_user: UserModel = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
 ):
     """Terminate the active CIP session and revoke the current Bearer token."""
     revoke_access_token(token)
+    await RevokedTokenRepository.revoke_token(session, token)
     return {
         "status": "LOGGED_OUT",
         "user_id": current_user.id,

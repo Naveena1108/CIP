@@ -12,12 +12,18 @@ from typing import Dict, List, Optional, Set
 import bcrypt
 from pydantic import BaseModel, EmailStr
 from jose import JWTError, jwt
+import secrets
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.session import get_db_session
-from src.db.repository import UserRepository, InstitutionRepository, OrganizationRepository
+from src.db.repository import (
+    UserRepository,
+    InstitutionRepository,
+    OrganizationRepository,
+    RevokedTokenRepository,
+)
 from src.db.models import UserModel
 
 
@@ -269,7 +275,8 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    if token in REVOKED_TOKENS:
+    if token in REVOKED_TOKENS or await RevokedTokenRepository.is_token_revoked(session, token):
+        REVOKED_TOKENS.add(token)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session has been logged out. Please sign in again.",

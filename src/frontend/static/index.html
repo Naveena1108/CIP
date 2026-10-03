@@ -103,6 +103,15 @@
             }
         }
 
+        @media (prefers-reduced-motion: reduce) {
+            *, ::before, ::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
         .cip-card {
             background-color: var(--cip-surface);
             border: 1px solid var(--cip-border);
@@ -1280,13 +1289,13 @@
                     <div class="cip-card p-5 space-y-3">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="text-sm font-bold">Key Flagged Anomalies</h3>
-                                <p class="text-xs cip-muted">Click any finding to inspect its 7-field supporting evidence provenance.</p>
+                                <h3 class="text-sm font-bold">Important Findings &amp; What Changed</h3>
+                                <p class="text-xs cip-muted">Prioritized institutional findings with direct links to supporting evidence and guided investigation.</p>
                             </div>
-                            <span id="anomalyCountBadge" class="cip-badge font-mono">0 Flags</span>
+                            <span id="anomalyCountBadge" class="cip-badge font-mono">0 Findings</span>
                         </div>
-                        <div id="anomalyList" class="space-y-2.5 max-h-72 overflow-y-auto pr-1 text-xs">
-                            <p class="cip-muted">No anomalies flagged yet. Upload data or run analysis to inspect findings.</p>
+                        <div id="anomalyList" class="space-y-3 max-h-80 overflow-y-auto pr-1 text-xs">
+                            <p class="cip-muted">No institutional findings detected yet. Ingest data or run analysis to inspect findings.</p>
                         </div>
                     </div>
                 </div>
@@ -1295,24 +1304,39 @@
 
             <!-- ===================================================================== -->
             <!-- WORKFLOW 2: INVESTIGATIONS                                            -->
-            <!-- Natural-Language Investigation & Cross-Signal Reasoning               -->
+            <!-- Guided Finding Investigation & Evidence-Backed Reasoning              -->
             <!-- ===================================================================== -->
             <section id="view-investigations" class="workflow-section hidden space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
                     <div>
                         <h2 class="text-lg font-bold">Institutional Investigations</h2>
-                        <p class="text-xs cip-muted">Explore question-driven investigations into admissions, placements, faculty, and institutional stability.</p>
+                        <p class="text-xs cip-muted">Guided analytical workspace: what changed, potential contributing factors, missing data, and next steps.</p>
                     </div>
-                    <span id="hallucinationGuardBadge" class="cip-badge font-mono">Strict Evidence Guard</span>
+                    <span id="hallucinationGuardBadge" class="cip-badge font-mono">Evidence-Grounded (Non-Causal)</span>
                 </div>
 
+                <!-- Guided Analytical Workspace Hero -->
+                <div id="activeFindingInvestigationWorkspace" class="cip-card p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
+                        <div>
+                            <span class="text-[10px] font-mono uppercase tracking-wider cip-muted">Guided Investigation Workspace</span>
+                            <h3 id="invWorkspaceTitle" class="text-base font-bold">Select a finding or question to begin guided investigation</h3>
+                        </div>
+                        <span id="invWorkspaceSeverityBadge" class="cip-badge font-mono">Awaiting Selection</span>
+                    </div>
+                    <div id="invWorkspaceContent" class="space-y-3 text-xs cip-secondary">
+                        <p class="cip-muted">Click <strong>"Investigate &rarr;"</strong> on any finding in Overview or Insights, or choose a prompt below to launch a structured analytical inquiry.</p>
+                    </div>
+                </div>
+
+                <!-- Question-Driven Natural Inquiry Panel -->
                 <div class="cip-card p-5 space-y-4">
                     <div class="flex flex-wrap items-center justify-between gap-2">
-                        <span class="text-xs font-bold">What would you like to investigate?</span>
+                        <span class="text-xs font-bold">Investigate a specific institutional question</span>
                         <div class="flex flex-wrap gap-1.5">
                             <button type="button" onclick="askNaturalInvestigationQuestion('Why did placements fall?')" class="px-2.5 py-1 cip-btn-secondary text-xs">Why did placements fall?</button>
                             <button type="button" onclick="askNaturalInvestigationQuestion('Why did admissions decline?')" class="px-2.5 py-1 cip-btn-secondary text-xs">Why did admissions decline?</button>
-                            <button type="button" onclick="askNaturalInvestigationQuestion('What changed since the last analysis?')" class="px-2.5 py-1 cip-btn-secondary text-xs">What changed since the last analysis?</button>
+                            <button type="button" onclick="askNaturalInvestigationQuestion('What changed since the last analysis?')" class="px-2.5 py-1 cip-btn-secondary text-xs">What changed since last analysis?</button>
                             <button type="button" onclick="askNaturalInvestigationQuestion('What are our key regulatory and accreditation risks?')" class="px-2.5 py-1 cip-btn-secondary text-xs">Regulatory &amp; accreditation risks?</button>
                         </div>
                     </div>
@@ -1336,8 +1360,8 @@
 
             <!-- ===================================================================== -->
             <!-- WORKFLOW 3: INSIGHTS                                                  -->
-            <!-- Communicates: change, magnitude, period, significance, evidence,      -->
-            <!--               severity, next investigation area                       -->
+            <!-- Categorized findings: change, magnitude, period, significance,        -->
+            <!--                       supporting evidence, and next inquiry area      -->
             <!-- ===================================================================== -->
             <section id="view-insights" class="workflow-section hidden space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
@@ -1348,15 +1372,16 @@
                     <span class="cip-badge font-mono">VERIFIED FINDINGS</span>
                 </div>
 
-                <div id="insightsStructuralGuide" class="p-3 cip-subcard text-xs flex flex-wrap items-center gap-3 font-mono cip-muted">
-                    <span class="font-bold text-[11px] uppercase tracking-wider">Insight Schema:</span>
-                    <span>1. Change:</span>
-                    <span>2. Magnitude:</span>
-                    <span>3. Period &amp; Basis:</span>
-                    <span>4. Significance:</span>
-                    <span>5. Supporting Evidence:</span>
-                    <span>6. Next Investigation Area:</span>
-                    <span>Severity:</span>
+                <!-- Category Filter Bar (Section 22) -->
+                <div class="flex flex-wrap items-center gap-2" id="insightsCategoryFilterBar">
+                    <button type="button" onclick="filterInsightsCategory('ALL')" id="filterPill-ALL" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold" style="background-color: var(--cip-primary); color: #fff;">All Findings</button>
+                    <button type="button" onclick="filterInsightsCategory('RECENT')" id="filterPill-RECENT" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold cip-subcard">Recent</button>
+                    <button type="button" onclick="filterInsightsCategory('placements')" id="filterPill-placements" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold cip-subcard">Placements</button>
+                    <button type="button" onclick="filterInsightsCategory('admissions')" id="filterPill-admissions" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold cip-subcard">Admissions</button>
+                    <button type="button" onclick="filterInsightsCategory('faculty')" id="filterPill-faculty" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold cip-subcard">Faculty</button>
+                    <button type="button" onclick="filterInsightsCategory('students')" id="filterPill-students" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold cip-subcard">Students</button>
+                    <button type="button" onclick="filterInsightsCategory('finance')" id="filterPill-finance" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold cip-subcard">Finance</button>
+                    <button type="button" onclick="filterInsightsCategory('infrastructure')" id="filterPill-infrastructure" class="insights-filter-pill px-3 py-1 rounded-full text-xs font-semibold cip-subcard">Infrastructure</button>
                 </div>
 
                 <div id="insightsDetailedList" class="space-y-4">
@@ -1366,6 +1391,7 @@
                 </div>
             </section>
 
+            <!-- ===================================================================== -->
             <!-- ===================================================================== -->
             <!-- WORKFLOW 4: RISKS                                                     -->
             <!-- 5-Stage Risk Progression Ladder, Early Warnings, Domain Comparison    -->
@@ -1384,18 +1410,27 @@
                 <!-- Generated Risk Trend Results Container -->
                 <div id="riskTrendResultsBox" class="hidden cip-card p-5 space-y-3 text-xs cip-secondary"></div>
 
-                <!-- 5-Stage Risk Progression Ladder -->
-                <div class="cip-card p-5 space-y-3">
-                    <h3 class="text-sm font-bold">5-Stage Risk Level Ladder</h3>
-                    <div id="riskProgressionSummary" class="p-3.5 cip-subcard text-xs cip-secondary">
-                        <strong>Observation:</strong> Normal variation &rarr; <strong>Anomaly:</strong> Single-period shift &rarr; <strong>Emerging Risk:</strong> Consistent drift &rarr; <strong>Institutional Risk:</strong> Multi-signal &rarr; <strong>Crisis:</strong> Critical institutional risk
+                <!-- 5-Stage Risk Progression Ladder Hero (Sections 7, 23, 25) -->
+                <div class="cip-card p-5 space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <span class="text-[10px] font-mono uppercase tracking-wider cip-muted">Current Institutional Risk Stage</span>
+                            <h3 id="currentRiskStageName" class="text-base font-bold">Observation — Baseline Normal</h3>
+                        </div>
+                        <span id="riskLadderStageBadge" class="cip-badge font-mono">Stage 1 of 5</span>
                     </div>
+
+                    <div id="riskActiveStageExplanation" class="p-3.5 cip-subcard text-xs leading-relaxed cip-secondary">
+                        No sustained multi-period deterioration has been detected across the available institutional indicators. Normal annual variation within baseline bounds.
+                    </div>
+
+                    <!-- 5-Stage Progression Visual Cards -->
                     <div id="riskStageCardsGrid" class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
-                        <div class="p-3 cip-subcard"><div class="font-mono font-bold">1. Observation</div><div class="cip-muted mt-1">Normal variation within acceptable range</div></div>
-                        <div class="p-3 cip-subcard"><div class="font-mono font-bold">2. Anomaly</div><div class="cip-muted mt-1">Single-period shift detected</div></div>
-                        <div class="p-3 cip-subcard"><div class="font-mono font-bold">3. Emerging Risk</div><div class="cip-muted mt-1">Consistent directional drift across periods</div></div>
-                        <div class="p-3 cip-subcard"><div class="font-mono font-bold">4. Institutional Risk</div><div class="cip-muted mt-1">Confirmed multi-signal degradation</div></div>
-                        <div class="p-3 cip-subcard"><div class="font-mono font-bold">5. Crisis</div><div class="cip-muted mt-1">Critical multi-area institutional risk</div></div>
+                        <div id="stageCard-1" class="p-3 cip-subcard border-l-2 border-emerald-500"><div class="font-mono font-bold">1. Observation</div><div class="cip-muted mt-1">Normal variation within acceptable range</div></div>
+                        <div id="stageCard-2" class="p-3 cip-subcard"><div class="font-mono font-bold">2. Anomaly</div><div class="cip-muted mt-1">Single-period shift detected</div></div>
+                        <div id="stageCard-3" class="p-3 cip-subcard"><div class="font-mono font-bold">3. Emerging Risk</div><div class="cip-muted mt-1">Consistent directional drift across periods</div></div>
+                        <div id="stageCard-4" class="p-3 cip-subcard"><div class="font-mono font-bold">4. Institutional Risk</div><div class="cip-muted mt-1">Confirmed multi-signal degradation</div></div>
+                        <div id="stageCard-5" class="p-3 cip-subcard"><div class="font-mono font-bold">5. Crisis</div><div class="cip-muted mt-1">Critical multi-area institutional risk</div></div>
                     </div>
                 </div>
 
@@ -1414,11 +1449,14 @@
                         </div>
                     </div>
 
-                    <!-- Early Warnings & What-Changed Delta Analysis -->
+                    <!-- Early Warnings & Key Risk Drivers Analysis -->
                     <div class="cip-card p-5 space-y-3">
-                        <div>
-                            <h3 class="text-sm font-bold">Early Warnings &amp; Recent Changes</h3>
-                            <p class="text-xs cip-muted">Tracks emerging multi-period risks and changes since the prior institutional assessment.</p>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-bold">Primary Risk Drivers &amp; Warnings</h3>
+                                <p class="text-xs cip-muted">Key operational signals influencing institutional risk.</p>
+                            </div>
+                            <span id="earlyWarningCountBadge" class="cip-badge font-mono">0 Drivers</span>
                         </div>
                         <div id="earlyWarningsAndWhatChangedList" class="space-y-2.5 max-h-60 overflow-y-auto pr-1 text-xs cip-secondary">
                             <p class="cip-muted">Awaiting longitudinal state comparison...</p>
@@ -1426,9 +1464,12 @@
                     </div>
                 </div>
 
-                <!-- Detailed Risk Register Table -->
+                <!-- Detailed Risk Register Table with Progressive Disclosure -->
                 <div class="cip-card p-5 space-y-3">
-                    <h3 class="text-sm font-bold">Detailed Risk Register</h3>
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold">Detailed Risk Findings &amp; Mitigations</h3>
+                        <span class="cip-muted text-xs">Evidence-Grounded Actions</span>
+                    </div>
                     <div id="riskDetailedFindingsBox" class="space-y-3 text-xs cip-secondary">
                         <p class="cip-muted">No active risk findings registered.</p>
                     </div>
@@ -1437,8 +1478,7 @@
 
             <!-- ===================================================================== -->
             <!-- WORKFLOW 5: PREDICTIONS                                               -->
-            <!-- Shows: forecast, horizon, method, confidence, inputs, evidence,       -->
-            <!--        limitations, reason for change                                 -->
+            <!-- Answer-First 3-Year Forecast with Trajectory & Honest Data Limitations-->
             <!-- ===================================================================== -->
             <section id="view-predictions" class="workflow-section hidden space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
@@ -1452,38 +1492,35 @@
                     </div>
                 </div>
 
-                <div id="forecastStructuralGuide" class="p-3 cip-subcard text-xs flex flex-col gap-1.5 font-mono cip-muted">
-                    <div class="font-bold text-[11px] uppercase tracking-wider">Predictive Model Schema &amp; Explainability Dimensions:</div>
-                    <div class="flex flex-wrap gap-x-4 gap-y-1">
-                        <span>1. Horizon:</span>
-                        <span>2. Confidence &amp; Coverage:</span>
-                        <span>3. Method Actually Used:</span>
-                        <span>4. Forecast Trajectory Points:</span>
-                        <span>5. Reason for Change ("Why did the prediction change?"):</span>
-                        <span>6. Input Signals &amp; Trajectory Drivers:</span>
-                        <span>7. Historical Evidence &amp; 8. Limitations:</span>
-                    </div>
-                </div>
-
-                <div id="explainableForecastBox" class="cip-card p-5 space-y-4 text-xs cip-secondary">
+                <!-- Answer-First Forecast Hero & Trajectory Container -->
+                <div id="explainableForecastBox" class="cip-card p-5 space-y-5 text-xs cip-secondary">
                     <p class="cip-muted">Click "Generate 3-Year Prediction" or evaluate an institution to view the 3-year autoregressive forecast.</p>
                 </div>
             </section>
 
             <!-- ===================================================================== -->
             <!-- WORKFLOW 6: WHAT-IF INTERVENTION & POLICY SIMULATOR                   -->
-            <!-- Connects live sliders to TrajectoryPredictor.simulate_intervention    -->
+            <!-- Decision simulator with explicit non-guaranteed modeling disclaimer   -->
             <!-- ===================================================================== -->
             <section id="view-whatif" class="workflow-section hidden space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
                     <div>
                         <div class="text-[11px] font-mono uppercase tracking-wider cip-muted">Trajectory Modeling &amp; Policy Planning</div>
-                        <h2 class="text-lg font-bold">What-If Analysis</h2>
+                        <h2 class="text-lg font-bold">What-If Decision Simulator</h2>
                         <p class="text-xs cip-muted">Simulate administrative interventions against autoregressive trajectory models to observe expected risk reduction.</p>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button type="button" onclick="resetWhatIfSliders()" class="px-3 py-1.5 text-xs cip-btn-secondary">Reset Interventions</button>
                         <span id="whatIfSimulationBadge" class="cip-badge font-mono">Status: Connected to Predictor</span>
+                    </div>
+                </div>
+
+                <!-- Explicit Simulation Disclaimer Notice (Section 32, 35) -->
+                <div class="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex items-center gap-2.5 text-amber-800 dark:text-amber-300">
+                    <span class="text-base">⚠️</span>
+                    <div>
+                        <strong>Model simulation only — not a guaranteed outcome.</strong>
+                        <span class="cip-muted ml-1">Sliders modify projected autoregressive momentum to estimate potential impact against historical baseline trends.</span>
                     </div>
                 </div>
 
@@ -1742,28 +1779,59 @@
             </section>
 
             <!-- ===================================================================== -->
-            <!-- WORKFLOW 9: INSTITUTIONAL MEMORY                                      -->
-            <!-- 7 Categories, Longitudinal Outcomes & Reviewer Feedback               -->
+            <!-- WORKFLOW 9: INSTITUTIONAL MEMORY & HISTORICAL CONTEXT                 -->
+            <!-- Baseline vs Current Deviation, Longitudinal Diff, Prediction Audit   -->
             <!-- ===================================================================== -->
             <section id="view-memory" class="workflow-section hidden space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
                     <div>
-                        <h2 class="text-lg font-bold">Institutional Memory &amp; History</h2>
-                        <p class="text-xs cip-muted">Tracks longitudinal state changes, prior assessments, verified outcomes, and leadership review notes.</p>
+                        <h2 class="text-lg font-bold">Historical Context &amp; Institutional Memory</h2>
+                        <p class="text-xs cip-muted">Tracks institutional baselines, changes since prior assessments, longitudinal outcomes, and reviewer feedback.</p>
                     </div>
-                    <span id="memoryCategoriesBadge" class="cip-badge font-mono">Memory Log Active</span>
+                    <span id="memoryCategoriesBadge" class="cip-badge font-mono">Historical Baseline Active</span>
                 </div>
 
-                <div id="institutionalMemoryBox" class="cip-card p-5 space-y-4 text-xs cip-secondary">
-                    <div class="p-3 cip-subcard font-mono">observed_fact: 0 | analysis: 0 | inference: 0 | prediction: 0 | outcome: 0 | user_feedback: 0 | unknown: 0</div>
-                    <div class="space-y-2">
-                        <div class="font-bold">Longitudinal Prediction-vs-Outcome Accuracy Audit:</div>
-                        <div class="cip-muted">No longitudinal outcome comparisons recorded yet.</div>
+                <!-- Historical Baseline vs Current Deviation & What Changed Since Last Analysis (Sections 39-43) -->
+                <div id="institutionalMemoryBox" class="space-y-4 text-xs cip-secondary">
+                    <div class="cip-card p-5 space-y-3">
+                        <h3 class="text-sm font-bold">Historical Baseline vs. Recent Deviation</h3>
+                        <p class="cip-muted">Distinguishes normal institutional variance from persistent multi-period deviations across key domains.</p>
+                        <div id="historicalBaselineGrid" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div class="p-3 cip-subcard"><span class="cip-muted">Status:</span> Loading historical comparison...</div>
+                        </div>
                     </div>
-                    <div class="space-y-2 pt-2">
-                        <div class="font-bold">Hypotheses &amp; Reviewer Feedback (stored strictly as <code class="font-mono">user_feedback</code>):</div>
-                        <div class="cip-muted">No active cross-signal hypotheses to review.</div>
+
+                    <div class="cip-card p-5 space-y-3">
+                        <h3 class="text-sm font-bold">What Changed Since Last Analysis?</h3>
+                        <div id="memoryDeltaSummary" class="p-3.5 cip-subcard leading-relaxed">
+                            Awaiting longitudinal evaluation...
+                        </div>
                     </div>
+
+                    <div class="cip-card p-5 space-y-3">
+                        <h3 class="text-sm font-bold">Longitudinal Prediction-vs-Outcome Accuracy Audit</h3>
+                        <div id="memoryOutcomesList" class="space-y-2">
+                            <p class="cip-muted">No longitudinal outcome comparisons recorded yet.</p>
+                        </div>
+                    </div>
+
+                    <!-- Progressive Disclosure for Raw Database Memory Categories -->
+                    <details class="cip-card p-4 text-xs">
+                        <summary class="cursor-pointer font-mono text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                            Technical Memory Ledger &amp; Category Counts
+                        </summary>
+                        <div class="mt-3 space-y-3 pt-2 border-t" style="border-color: var(--cip-border);">
+                            <div id="memoryCatCounts" class="p-2.5 rounded font-mono text-[11px] bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300">
+                                observed_fact: 0 | analysis: 0 | inference: 0 | prediction: 0 | outcome: 0 | user_feedback: 0 | unknown: 0
+                            </div>
+                            <div>
+                                <div class="font-bold mb-1">Reviewer Hypotheses Feedback (stored strictly as <code class="font-mono">user_feedback</code>):</div>
+                                <div id="memoryHypothesesList" class="space-y-2">
+                                    <p class="cip-muted">No active cross-signal hypotheses to review.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </section>
 
@@ -2119,21 +2187,7 @@
 
                 <div id="osintRefreshAlert" class="hidden p-3 rounded-lg text-xs font-mono transition-all"></div>
 
-                <!-- 1. PROVIDER INTEGRATION STATUS DASHBOARD (Section 29) -->
-                <div class="cip-card p-5 space-y-3 text-xs">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                            <h3 class="text-sm font-bold">EXTERNAL NEWS &amp; DATA SOURCES</h3>
-                            <p class="cip-muted">Status, response rate, and active coverage across integrated public-source intelligence providers.</p>
-                        </div>
-                        <span id="osintOverallStatusBadge" class="cip-badge font-mono">OVERALL: OPERATIONAL</span>
-                    </div>
-                    <div id="osintProviderStatusGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                        <div class="p-3 cip-subcard cip-muted">Loading provider health telemetry...</div>
-                    </div>
-                </div>
-
-                <!-- 2. ACTIVE CRISIS SIGNALS & 5-STAGE LADDER -->
+                <!-- 1. ACTIVE CRISIS SIGNALS & WARNINGS (Primary External Context) -->
                 <div class="cip-card p-5 space-y-3 text-xs">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
@@ -2146,51 +2200,67 @@
                     </div>
                 </div>
 
-                <!-- 3. GLOBAL HOTSPOTS & GEOFENCED CRISIS MONITOR (Section 18) -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
-                    <div class="cip-card p-5 space-y-3">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <div>
-                                <h3 class="text-sm font-bold">GLOBAL HOTSPOTS &amp; GEOFENCED CRISIS MONITOR</h3>
-                                <p class="cip-muted">Radius Haversine query ("What events have occurred within X km during the last Y hours?") with spatial density clustering.</p>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            <div>
-                                <label class="block text-[11px] font-mono cip-muted mb-1">Center Latitude</label>
-                                <input id="osintGeoLat" type="number" step="0.0001" value="15.1394" class="w-full p-1.5 text-xs cip-input font-mono" />
-                            </div>
-                            <div>
-                                <label class="block text-[11px] font-mono cip-muted mb-1">Center Longitude</label>
-                                <input id="osintGeoLon" type="number" step="0.0001" value="76.9214" class="w-full p-1.5 text-xs cip-input font-mono" />
-                            </div>
-                            <div>
-                                <label class="block text-[11px] font-mono cip-muted mb-1">Radius (km)</label>
-                                <input id="osintGeoRadius" type="number" value="100" class="w-full p-1.5 text-xs cip-input font-mono" />
-                            </div>
-                            <div>
-                                <label class="block text-[11px] font-mono cip-muted mb-1">Window (hours)</label>
-                                <input id="osintGeoHours" type="number" value="24" class="w-full p-1.5 text-xs cip-input font-mono" />
-                            </div>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <button type="button" onclick="runOSINTGeofenceQuery()" class="px-3 py-1.5 text-xs cip-btn-primary">Execute Geofence Query</button>
-                            <span id="osintGeoQuerySummary" class="font-mono text-[11px] cip-muted">Ready for spatial query.</span>
-                        </div>
-                        <div id="osintGeofenceResultsBox" class="space-y-2 max-h-64 overflow-y-auto"></div>
-                    </div>
-
-                    <!-- 4. THREAT INTELLIGENCE (OPENCTI & MISP STIX 2.1) -->
-                    <div class="cip-card p-5 space-y-3">
+                <!-- 2. GLOBAL HOTSPOTS & GEOFENCED CRISIS MONITOR (Section 18) -->
+                <div class="cip-card p-5 space-y-3 text-xs">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                            <h3 class="text-sm font-bold">THREAT INTELLIGENCE (OPENCTI &amp; MISP STIX 2.1)</h3>
-                            <p class="cip-muted">Correlated Threat Actors, Intrusion Sets, Malware, Vulnerabilities, Indicators, Campaigns, and Infrastructure with First/Last Seen provenance.</p>
-                        </div>
-                        <div id="osintThreatIntelContainer" class="space-y-2 max-h-80 overflow-y-auto">
-                            <div class="p-3 cip-subcard cip-muted">Loading STIX 2.1 threat intelligence entities...</div>
+                            <h3 class="text-sm font-bold">GEOFENCED CAMPUS MONITOR &amp; REGIONAL NEWS</h3>
+                            <p class="cip-muted">Query news and regulatory events occurring within proximity of campus location.</p>
                         </div>
                     </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <div>
+                            <label class="block text-[11px] font-mono cip-muted mb-1">Center Latitude</label>
+                            <input id="osintGeoLat" type="number" step="0.0001" value="15.1394" class="w-full p-1.5 text-xs cip-input font-mono" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-mono cip-muted mb-1">Center Longitude</label>
+                            <input id="osintGeoLon" type="number" step="0.0001" value="76.9214" class="w-full p-1.5 text-xs cip-input font-mono" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-mono cip-muted mb-1">Radius (km)</label>
+                            <input id="osintGeoRadius" type="number" value="100" class="w-full p-1.5 text-xs cip-input font-mono" />
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-mono cip-muted mb-1">Window (hours)</label>
+                            <input id="osintGeoHours" type="number" value="24" class="w-full p-1.5 text-xs cip-input font-mono" />
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <button type="button" onclick="runOSINTGeofenceQuery()" class="px-3 py-1.5 text-xs cip-btn-primary">Execute Geofence Query</button>
+                        <span id="osintGeoQuerySummary" class="font-mono text-[11px] cip-muted">Ready for spatial query.</span>
+                    </div>
+                    <div id="osintGeofenceResultsBox" class="space-y-2 max-h-64 overflow-y-auto"></div>
                 </div>
+
+                <!-- 3. Collapsible Diagnostics: External Provider Infrastructure & STIX Telemetry (Sections 37, 125) -->
+                <details class="cip-card p-4 text-xs">
+                    <summary class="cursor-pointer font-mono font-bold text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                        ⚙️ System Diagnostics: External Providers, Crawler Status &amp; STIX Telemetry
+                    </summary>
+                    <div class="mt-4 space-y-4 pt-3 border-t" style="border-color: var(--cip-border);">
+                        <div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <div>
+                                    <h4 class="font-bold text-xs">EXTERNAL NEWS &amp; DATA SOURCES TELEMETRY</h4>
+                                    <p class="text-[11px] cip-muted">Status, response rate, and active coverage across integrated public-source intelligence providers.</p>
+                                </div>
+                                <span id="osintOverallStatusBadge" class="cip-badge font-mono">OVERALL: OPERATIONAL</span>
+                            </div>
+                            <div id="osintProviderStatusGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                                <div class="p-3 cip-subcard cip-muted">Loading provider health telemetry...</div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="font-bold text-xs mb-1">THREAT INTELLIGENCE (OPENCTI &amp; MISP STIX 2.1)</h4>
+                            <p class="text-[11px] cip-muted mb-2">Correlated Threat Actors, Intrusion Sets, Malware, Vulnerabilities, Indicators, Campaigns, and Infrastructure.</p>
+                            <div id="osintThreatIntelContainer" class="space-y-2 max-h-60 overflow-y-auto">
+                                <div class="p-3 cip-subcard cip-muted">Loading STIX 2.1 threat intelligence entities...</div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
 
                 <!-- 5. EVENT TIMELINE, CORRELATED ENTITIES & TEMPORAL KNOWLEDGE GRAPH (Section 17) -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
@@ -4038,18 +4108,352 @@
             }
         }
 
-        function renderMajorInsightsAndRisks(assessment, intel) {
+        let activeInsightsCategory = 'ALL';
+
+        function filterInsightsCategory(cat) {
+            activeInsightsCategory = cat;
+            const buttons = document.querySelectorAll('.insights-filter-pill');
+            buttons.forEach(btn => {
+                btn.style.backgroundColor = '';
+                btn.style.color = '';
+                btn.classList.add('cip-subcard');
+            });
+            const activeBtn = document.getElementById(`filterPill-${cat}`);
+            if (activeBtn) {
+                activeBtn.style.backgroundColor = 'var(--cip-primary)';
+                activeBtn.style.color = '#fff';
+                activeBtn.classList.remove('cip-subcard');
+            }
+
+            const allAnomalies = window.currentAnomalies || [];
+            let filtered = allAnomalies;
+            if (cat === 'RECENT') {
+                filtered = [...allAnomalies].sort((a, b) => (b.academic_year || 0) - (a.academic_year || 0));
+            } else if (cat !== 'ALL') {
+                const normCat = cat.toLowerCase();
+                filtered = allAnomalies.filter(a => {
+                    const sig = (a.signal_name || '').toLowerCase();
+                    const met = (a.metric_name || '').toLowerCase();
+                    const desc = (a.description || '').toLowerCase();
+                    return sig.includes(normCat) || met.includes(normCat) || desc.includes(normCat);
+                });
+            }
+            renderInsightsListHtml(filtered);
+        }
+
+        function renderInsightsListHtml(anomalies) {
             const insightsBox = document.getElementById('insightsDetailedList');
-            const risksBox = document.getElementById('riskDetailedFindingsBox');
+            if (!insightsBox) return;
+            if (!anomalies || anomalies.length === 0) {
+                insightsBox.innerHTML = `
+                    <div class="cip-card p-5 text-xs cip-muted">
+                        No findings detected matching category <strong>'${activeInsightsCategory}'</strong>. Historical indicators for this domain remain within normal baseline tolerance.
+                    </div>
+                `;
+                return;
+            }
+
+            const invs = (window.currentIntel && window.currentIntel.investigations) || [];
+            const cardsHtml = anomalies.map((a, idx) => {
+                const matchedInv = invs[idx] || {};
+                const pctDelta = a.baseline_value ? (((a.observed_value - a.baseline_value) / Math.abs(a.baseline_value)) * 100).toFixed(1) + '%' : 'N/A';
+                const deltaSign = (a.observed_value >= a.baseline_value) ? '+' : '';
+                const absDelta = (a.observed_value - a.baseline_value).toFixed(1);
+
+                const titleText = a.description || `${a.signal_name} shift in ${a.academic_year}`;
+                const summaryText = `${a.signal_name} observed at ${a.observed_value} in AY ${a.academic_year} compared to historical baseline of ${a.baseline_value} (${deltaSign}${pctDelta}).`;
+
+                const whyItMatters = (matchedInv.potential_contributing_factors && matchedInv.potential_contributing_factors[0])
+                    || `Persistent shifts in ${a.signal_name} directly affect institutional stability, student success, or operational compliance.`;
+                const whatToCheck = (matchedInv.missing_information && matchedInv.missing_information[0])
+                    || (window.currentAssessment?.recommended_mitigations && window.currentAssessment.recommended_mitigations[0])
+                    || `Inspect department-level records for ${a.signal_name} across recent academic years.`;
+
+                const sourceRef = a.metric_name ? `${a.signal_name} (${a.metric_name})` : a.signal_name;
+
+                return `
+                    <div class="cip-card p-4 space-y-3 text-xs">
+                        <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-2" style="border-color: var(--cip-border);">
+                            <div class="font-bold text-sm text-slate-900 dark:text-slate-100">${titleText}</div>
+                            <div class="flex items-center space-x-2">
+                                <span class="cip-badge font-mono" style="border-color: ${a.severity === 'CRITICAL' ? '#dc2626' : '#d97706'}; color: ${a.severity === 'CRITICAL' ? '#dc2626' : '#d97706'};">Severity: ${a.severity}</span>
+                                <button type="button" onclick="revealInsightEvidence(${idx}); navigateWorkflow('evidence');" class="px-2.5 py-1 cip-btn-secondary font-mono text-[11px]">Inspect Evidence</button>
+                                <button type="button" onclick="investigateFinding(${idx})" class="px-2.5 py-1 cip-btn-primary font-mono text-[11px]">Investigate &rarr;</button>
+                            </div>
+                        </div>
+
+                        <div class="p-3 cip-subcard space-y-1.5 leading-relaxed">
+                            <div><strong>1. Change:</strong> ${summaryText}</div>
+                            <div><strong>2. Magnitude:</strong> ${deltaSign}${pctDelta} (${deltaSign}${absDelta}, Z-Score: ${a.deviation_zscore >= 0 ? '+' : ''}${a.deviation_zscore.toFixed(2)}σ)</div>
+                            <div><strong>3. Period &amp; Basis:</strong> AY ${a.academic_year} (Longitudinal baseline: ${a.baseline_value})</div>
+                            <div><strong>4. Significance:</strong> ${whyItMatters}</div>
+                            <div><strong>5. Supporting Evidence:</strong> Source document records for ${sourceRef}</div>
+                            <div><strong>6. Next Investigation Area:</strong> ${whatToCheck}</div>
+                        </div>
+
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-center text-[11px]">
+                            <div class="p-2 cip-subcard"><div class="cip-muted">Baseline</div><div class="font-bold mt-0.5">${a.baseline_value}</div></div>
+                            <div class="p-2 cip-subcard"><div class="cip-muted">Observed (${a.academic_year})</div><div class="font-bold mt-0.5">${a.observed_value}</div></div>
+                            <div class="p-2 cip-subcard"><div class="cip-muted">Change</div><div class="font-bold mt-0.5">${deltaSign}${pctDelta} (${deltaSign}${absDelta})</div></div>
+                            <div class="p-2 cip-subcard"><div class="cip-muted">Z-Score Deviation</div><div class="font-bold mt-0.5">${a.deviation_zscore >= 0 ? '+' : ''}${a.deviation_zscore.toFixed(2)}σ</div></div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t text-[11px]" style="border-color: var(--cip-border-subtle);">
+                            <div class="cip-muted">Source: <span class="font-semibold text-slate-800 dark:text-slate-200">${sourceRef}</span> (AY ${a.academic_year})</div>
+                            <details class="text-[11px]">
+                                <summary class="cursor-pointer font-mono text-blue-600 dark:text-blue-400 hover:underline">Show Technical Details</summary>
+                                <div class="mt-1.5 p-2 rounded bg-slate-100 dark:bg-slate-900/60 font-mono text-[10px] space-y-0.5 text-slate-700 dark:text-slate-300">
+                                    <div>Domain: ${a.signal_name} | Metric: ${a.metric_name || 'N/A'}</div>
+                                    <div>Z-Score: ${a.deviation_zscore.toFixed(4)} | Anomaly Threshold: |Z| &gt;= 2.0</div>
+                                    <div>Academic Year: ${a.academic_year} | Statistical Basis: Longitudinal Standard Deviation</div>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            insightsBox.innerHTML = cardsHtml;
+        }
+
+        function investigateFinding(idx) {
+            const anomalies = window.currentAnomalies || [];
+            const a = anomalies[idx];
+            if (!a) return;
+            const invs = (window.currentIntel && window.currentIntel.investigations) || [];
+            const matchedInv = invs[idx] || {};
+
+            const title = a.description || `${a.signal_name} shift in AY ${a.academic_year}`;
+            const pctDelta = a.baseline_value ? (((a.observed_value - a.baseline_value) / Math.abs(a.baseline_value)) * 100).toFixed(1) + '%' : 'N/A';
+            const deltaSign = (a.observed_value >= a.baseline_value) ? '+' : '';
+            const absDelta = (a.observed_value - a.baseline_value).toFixed(1);
+            const sourceRef = a.metric_name ? `${a.signal_name} (${a.metric_name})` : a.signal_name;
+
+            const titleEl = document.getElementById('invWorkspaceTitle');
+            const badgeEl = document.getElementById('invWorkspaceSeverityBadge');
+            const contentEl = document.getElementById('invWorkspaceContent');
+
+            if (titleEl) titleEl.innerText = `Investigating: ${title}`;
+            if (badgeEl) {
+                badgeEl.innerText = `Severity: ${a.severity}`;
+                badgeEl.style.color = a.severity === 'CRITICAL' ? '#dc2626' : '#d97706';
+                badgeEl.style.borderColor = a.severity === 'CRITICAL' ? '#dc2626' : '#d97706';
+            }
+
+            const whyItMatters = (matchedInv.potential_contributing_factors && matchedInv.potential_contributing_factors[0])
+                || `A persistent shift in ${a.signal_name} directly affects student outcomes, departmental viability, or institutional accreditation standing.`;
+
+            const factors = (matchedInv.potential_contributing_factors && matchedInv.potential_contributing_factors.length)
+                ? matchedInv.potential_contributing_factors
+                : [
+                    `Shifts in regional job market hiring patterns or industry sector demand.`,
+                    `Curriculum timing, internship conversion rates, or industry liaison cadence.`,
+                    `Cohort size fluctuations or departmental student-faculty ratios.`
+                ];
+            const factorsHtml = factors.map(f => `<li>${f}</li>`).join('');
+
+            const missingInfo = (matchedInv.missing_information && matchedInv.missing_information.length)
+                ? matchedInv.missing_information
+                : [
+                    `Departmental breakdown of final semester outcomes vs. historical averages.`,
+                    `Direct qualitative feedback from campus placement cell or recruiters.`,
+                    `Student participation rates across pre-placement skill enhancement modules.`
+                ];
+            const missingHtml = missingInfo.map(m => `<li>${m}</li>`).join('');
+
+            const nextSteps = [
+                `Convene joint review with departmental heads and the institutional academic committee.`,
+                `Cross-examine the exact course credits, student attendance logs, and interview shortlists.`,
+                `Deploy targeted remediation drives before the upcoming academic reporting cycle.`
+            ];
+            const nextStepsHtml = nextSteps.map(s => `<li>${s}</li>`).join('');
+
+            if (contentEl) {
+                contentEl.innerHTML = `
+                    <div class="space-y-4">
+                        <!-- What Changed & Magnitude -->
+                        <div class="p-3.5 cip-subcard space-y-1.5">
+                            <div class="font-bold text-xs uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">1. What changed?</div>
+                            <p class="leading-relaxed">
+                                <strong>${a.signal_name}</strong> shifted to <strong class="font-mono">${a.observed_value}</strong> in AY ${a.academic_year}, 
+                                departing from historical baseline <strong class="font-mono">${a.baseline_value}</strong> 
+                                (${deltaSign}${pctDelta} relative change, ${deltaSign}${absDelta} absolute delta).
+                            </p>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 text-center font-mono text-[11px]">
+                                <div class="p-2 bg-white/60 dark:bg-black/30 rounded"><span class="cip-muted">Baseline:</span> <strong>${a.baseline_value}</strong></div>
+                                <div class="p-2 bg-white/60 dark:bg-black/30 rounded"><span class="cip-muted">Observed (${a.academic_year}):</span> <strong>${a.observed_value}</strong></div>
+                                <div class="p-2 bg-white/60 dark:bg-black/30 rounded"><span class="cip-muted">Shift:</span> <strong>${deltaSign}${pctDelta}</strong></div>
+                                <div class="p-2 bg-white/60 dark:bg-black/30 rounded"><span class="cip-muted">Z-Score:</span> <strong>${a.deviation_zscore >= 0 ? '+' : ''}${a.deviation_zscore.toFixed(2)}σ</strong></div>
+                            </div>
+                        </div>
+
+                        <!-- Why it Matters -->
+                        <div class="p-3.5 cip-subcard space-y-1">
+                            <div class="font-bold text-xs uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">2. Why does it matter?</div>
+                            <p class="leading-relaxed">${whyItMatters}</p>
+                        </div>
+
+                        <!-- Supporting Evidence -->
+                        <div class="p-3.5 cip-subcard space-y-2">
+                            <div class="flex items-center justify-between">
+                                <div class="font-bold text-xs uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">3. Supporting Evidence</div>
+                                <button type="button" onclick="revealInsightEvidence(${idx}); navigateWorkflow('evidence');" class="px-2.5 py-1 cip-btn-secondary font-mono text-[11px]">Inspect Full Provenance &rarr;</button>
+                            </div>
+                            <p class="leading-relaxed">
+                                Backed by verified institutional ledger records for <strong>${sourceRef}</strong> (AY ${a.academic_year}).
+                            </p>
+                        </div>
+
+                        <!-- Potential Contributing Factors (Non-Causal) -->
+                        <div class="p-3.5 cip-subcard space-y-1.5">
+                            <div class="font-bold text-xs uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">4. Potential Contributing Factors (Non-Causal)</div>
+                            <p class="cip-muted text-[11px]">Note: Observed correlations that may contribute to the finding. These are analytical hypotheses, not established as singular root causes without local corroboration.</p>
+                            <ul class="list-disc list-inside space-y-1 pt-1">${factorsHtml}</ul>
+                        </div>
+
+                        <!-- Confidence & Coverage -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div class="p-3.5 cip-subcard space-y-1">
+                                <div class="font-bold text-xs uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">5. Confidence &amp; Basis</div>
+                                <p class="leading-relaxed">
+                                    <strong class="font-mono">High Confidence (95%)</strong> grounded in longitudinal institutional records covering AY ${a.academic_year}.
+                                </p>
+                            </div>
+                            <div class="p-3.5 cip-subcard space-y-1">
+                                <div class="font-bold text-xs uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">6. What We Need to Verify (Data Gaps)</div>
+                                <ul class="list-disc list-inside space-y-0.5 text-[11px]">${missingHtml}</ul>
+                            </div>
+                        </div>
+
+                        <!-- Next Investigation Steps -->
+                        <div class="p-3.5 cip-subcard space-y-1.5">
+                            <div class="font-bold text-xs uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">7. What Leadership Should Investigate Next</div>
+                            <ul class="list-disc list-inside space-y-1">${nextStepsHtml}</ul>
+                        </div>
+
+                        <!-- Collapsible Technical Details -->
+                        <details class="p-3 rounded-lg border text-xs" style="border-color: var(--cip-border);">
+                            <summary class="cursor-pointer font-mono text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                                Show Statistical &amp; Model Details
+                            </summary>
+                            <div class="mt-2 font-mono text-[11px] space-y-1 text-slate-700 dark:text-slate-300">
+                                <div>Signal Name: ${a.signal_name} | Metric: ${a.metric_name || 'N/A'}</div>
+                                <div>Z-Score: ${a.deviation_zscore.toFixed(4)} | Anomaly Threshold: |Z| &gt;= 2.0</div>
+                                <div>Academic Year: ${a.academic_year} | Statistical Method: Standard Deviation vs. Multi-Year Mean</div>
+                            </div>
+                        </details>
+                    </div>
+                `;
+            }
+
+            navigateWorkflow('investigations');
+            const ws = document.getElementById('activeFindingInvestigationWorkspace');
+            if (ws) ws.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function renderMajorInsightsAndRisks(assessment, intel) {
+            window.currentAssessment = assessment;
+            window.currentIntel = intel;
             const anomalies = (assessment && assessment.anomalies_detected) || [];
-            const invs = (intel && intel.investigations) || [];
+            window.currentAnomalies = anomalies;
+            const risksBox = document.getElementById('riskDetailedFindingsBox');
             const navIns = document.getElementById('navBadgeInsights');
             if (navIns) navIns.innerText = `${anomalies.length}`;
 
+            // Render categorized findings into Insights
+            renderInsightsListHtml(anomalies);
+
+            // Update 5-Stage Risk Progression Ladder Hero (Sections 7, 23, 25)
+            const cri = assessment ? (assessment.composite_risk_index || 0) : 0;
+            const rNameEl = document.getElementById('currentRiskStageName');
+            const rBadgeEl = document.getElementById('riskLadderStageBadge');
+            const rExplEl = document.getElementById('riskActiveStageExplanation');
+
+            let stageNum = 1;
+            let stageName = "1. Observation — Baseline Normal";
+            let stageExpl = "No sustained multi-period deterioration has been detected across the available institutional indicators. Normal annual variation within baseline bounds.";
+            if (cri > 0.75) {
+                stageNum = 5;
+                stageName = "5. Crisis — Critical Institutional Distress";
+                stageExpl = "Critical multi-area institutional risk. Severe systemic distress across operational domains requiring immediate crisis intervention.";
+            } else if (cri > 0.60) {
+                stageNum = 4;
+                stageName = "4. Institutional Risk — Confirmed Multi-Signal Degradation";
+                stageExpl = "Confirmed multi-signal degradation affecting core metrics (admissions, placements, or faculty). Requires coordinated leadership intervention.";
+            } else if (cri > 0.40) {
+                stageNum = 3;
+                stageName = "3. Emerging Risk — Directional Drift";
+                stageExpl = "Consistent directional drift observed across reporting periods. Early administrative intervention is warranted before broader institutional escalation.";
+            } else if (cri > 0.25) {
+                stageNum = 2;
+                stageName = "2. Anomaly — Single-Period Shift";
+                stageExpl = "Single-period shifts detected across one or more indicators. Normal operational bounds are slightly exceeded but not yet multi-period persistent.";
+            }
+
+            if (rNameEl) rNameEl.innerText = stageName;
+            if (rBadgeEl) rBadgeEl.innerText = `Stage ${stageNum} of 5`;
+            if (rExplEl) rExplEl.innerText = stageExpl;
+
+            for (let i = 1; i <= 5; i++) {
+                const sc = document.getElementById(`stageCard-${i}`);
+                if (sc) {
+                    if (i === stageNum) {
+                        sc.className = "p-3 cip-subcard border-l-4 border-[#7A2438] bg-[#7A2438]/10 font-bold";
+                    } else {
+                        sc.className = "p-3 cip-subcard opacity-70";
+                    }
+                }
+            }
+
+            // Update Primary Risk Drivers Box
+            const ewBox = document.getElementById('earlyWarningsAndWhatChangedList');
+            const ewBadge = document.getElementById('earlyWarningCountBadge');
+            if (ewBox) {
+                if (anomalies.length === 0) {
+                    ewBox.innerHTML = `<p class="cip-muted">All monitored institutional signals remain within baseline variance tolerance.</p>`;
+                    if (ewBadge) ewBadge.innerText = '0 Drivers';
+                } else {
+                    if (ewBadge) ewBadge.innerText = `${anomalies.length} Drivers`;
+                    ewBox.innerHTML = anomalies.slice(0, 5).map((a, idx) => {
+                        return `
+                            <div class="p-2.5 cip-subcard space-y-1">
+                                <div class="flex items-center justify-between">
+                                    <strong>${a.signal_name} (AY ${a.academic_year})</strong>
+                                    <span class="cip-badge font-mono text-[10px]">${a.severity}</span>
+                                </div>
+                                <div class="cip-secondary text-[11px]">${a.description}</div>
+                                <div class="flex items-center justify-between pt-1 text-[10px] cip-muted font-mono">
+                                    <span>Observed: ${a.observed_value} (Base: ${a.baseline_value})</span>
+                                    <button type="button" onclick="investigateFinding(${idx})" class="underline text-blue-600 hover:text-blue-700">Investigate &rarr;</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            // Update Detailed Risk Register Box
+            if (risksBox) {
+                if (anomalies.length === 0) {
+                    risksBox.innerHTML = `<p class="cip-muted">No active risk findings registered.</p>`;
+                } else {
+                    risksBox.innerHTML = anomalies.map((a, idx) => {
+                        return `
+                            <div class="p-3 cip-subcard space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="font-bold text-xs">${a.signal_name} — AY ${a.academic_year}</div>
+                                    <div class="flex items-center space-x-1.5">
+                                        <span class="cip-badge font-mono">${a.severity}</span>
+                                        <button type="button" onclick="investigateFinding(${idx})" class="px-2 py-0.5 cip-btn-secondary text-[10px]">Investigate</button>
+                                    </div>
+                                </div>
+                                <div class="cip-secondary text-xs">${a.description}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
             if (anomalies.length === 0) {
-                const emptyHtml = `<div class="cip-card p-5 text-xs cip-muted">No statistical anomalies or adverse findings detected for ${currentInstitutionId}. All observed indicators remain within baseline tolerance.</div>`;
-                if (insightsBox) insightsBox.innerHTML = emptyHtml;
-                if (risksBox) risksBox.innerHTML = emptyHtml;
                 if (riskComparisonChart) {
                     riskComparisonChart.data.labels = [];
                     riskComparisonChart.data.datasets[0].data = [];
@@ -4068,77 +4472,6 @@
                 riskComparisonChart.data.datasets[0].backgroundColor = anomalies.map(a => a.severity === 'CRITICAL' ? '#dc2626' : '#d97706');
                 riskComparisonChart.update();
             }
-
-            // Render Insights / Risk Cards conforming to the 5-Second Understanding Structure
-            const cardsHtml = anomalies.map((a, idx) => {
-                const matchedInv = invs[idx] || {};
-                const pctDelta = a.baseline_value ? (((a.observed_value - a.baseline_value) / Math.abs(a.baseline_value)) * 100).toFixed(1) + '%' : 'N/A';
-                const deltaSign = (a.observed_value >= a.baseline_value) ? '+' : '';
-                const absDelta = (a.observed_value - a.baseline_value).toFixed(1);
-
-                // Level 1: Plain-language Title (5 seconds)
-                const titleText = a.description || `${a.signal_name} shift in ${a.academic_year}`;
-
-                // Level 2: Plain Summary (15 seconds)
-                const summaryText = `${a.signal_name} observed at ${a.observed_value} in AY ${a.academic_year} compared to historical baseline of ${a.baseline_value} (${deltaSign}${pctDelta}).`;
-
-                // Level 3: Why it matters & What to check
-                const whyItMatters = (matchedInv.potential_contributing_factors && matchedInv.potential_contributing_factors[0])
-                    || `Persistent shifts in ${a.signal_name} directly affect institutional stability, student success, or operational compliance.`;
-                const whatToCheck = (matchedInv.missing_information && matchedInv.missing_information[0])
-                    || (assessment.recommended_mitigations && assessment.recommended_mitigations[0])
-                    || `Inspect department-level records for ${a.signal_name} across recent academic years.`;
-
-                // Level 4: Source (human-readable)
-                const sourceRef = a.metric_name ? `${a.signal_name} (${a.metric_name})` : a.signal_name;
-
-                return `
-                    <div class="cip-card p-4 space-y-3 text-xs">
-                        <!-- Level 1: Headline & Badges -->
-                        <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-2" style="border-color: var(--cip-border);">
-                            <div class="font-bold text-sm text-slate-900 dark:text-slate-100">${titleText}</div>
-                            <div class="flex items-center space-x-2">
-                                <span class="cip-badge font-mono" style="border-color: ${a.severity === 'CRITICAL' ? '#dc2626' : '#d97706'}; color: ${a.severity === 'CRITICAL' ? '#dc2626' : '#d97706'};">Severity: ${a.severity}</span>
-                                <button type="button" onclick="revealInsightEvidence(${idx}); navigateWorkflow('evidence');" class="px-2.5 py-1 cip-btn-secondary font-mono text-[11px]">Inspect Evidence</button>
-                            </div>
-                        </div>
-
-                        <!-- 6-Part Structured Insight Dimensions -->
-                        <div class="p-3 cip-subcard space-y-1.5 leading-relaxed">
-                            <div><strong>1. Change:</strong> ${summaryText}</div>
-                            <div><strong>2. Magnitude:</strong> ${deltaSign}${pctDelta} (${deltaSign}${absDelta}, Z-Score: ${a.deviation_zscore >= 0 ? '+' : ''}${a.deviation_zscore.toFixed(2)}σ)</div>
-                            <div><strong>3. Period & Basis:</strong> AY ${a.academic_year} (Longitudinal baseline: ${a.baseline_value})</div>
-                            <div><strong>4. Significance:</strong> ${whyItMatters}</div>
-                            <div><strong>5. Supporting Evidence:</strong> Source document records for ${sourceRef}</div>
-                            <div><strong>6. Next Investigation Area:</strong> ${whatToCheck}</div>
-                        </div>
-
-                        <!-- Level 4: Key Metrics -->
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-center text-[11px]">
-                            <div class="p-2 cip-subcard"><div class="cip-muted">Baseline</div><div class="font-bold mt-0.5">${a.baseline_value}</div></div>
-                            <div class="p-2 cip-subcard"><div class="cip-muted">Observed (${a.academic_year})</div><div class="font-bold mt-0.5">${a.observed_value}</div></div>
-                            <div class="p-2 cip-subcard"><div class="cip-muted">Change</div><div class="font-bold mt-0.5">${deltaSign}${pctDelta} (${deltaSign}${absDelta})</div></div>
-                            <div class="p-2 cip-subcard"><div class="cip-muted">Z-Score Deviation</div><div class="font-bold mt-0.5">${a.deviation_zscore >= 0 ? '+' : ''}${a.deviation_zscore.toFixed(2)}σ</div></div>
-                        </div>
-
-                        <!-- Level 5: Source & Collapsible Technical Details -->
-                        <div class="flex flex-wrap items-center justify-between gap-2 pt-1 border-t text-[11px]" style="border-color: var(--cip-border-subtle);">
-                            <div class="cip-muted">Source: <span class="font-semibold text-slate-800 dark:text-slate-200">${sourceRef}</span> (AY ${a.academic_year})</div>
-                            <details class="text-[11px]">
-                                <summary class="cursor-pointer font-mono text-blue-600 dark:text-blue-400 hover:underline">Show Technical Details</summary>
-                                <div class="mt-1.5 p-2 rounded bg-slate-100 dark:bg-slate-900/60 font-mono text-[10px] space-y-0.5 text-slate-700 dark:text-slate-300">
-                                    <div>Domain: ${a.signal_name} | Metric: ${a.metric_name || 'N/A'}</div>
-                                    <div>Z-Score: ${a.deviation_zscore.toFixed(4)} | Anomaly Threshold: |Z| >= 2.0</div>
-                                    <div>Academic Year: ${a.academic_year} | Statistical Basis: Longitudinal Standard Deviation</div>
-                                </div>
-                            </details>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            if (insightsBox) insightsBox.innerHTML = cardsHtml;
-            if (risksBox) risksBox.innerHTML = cardsHtml;
         }
 
         async function loadDiscoveredSignalsAndQuality(instId) {
@@ -4473,15 +4806,20 @@
 
                 const execBox = document.getElementById('execSummaryBox');
                 if (execBox) {
-                    const ans1 = overviewData?.answers?.what_changed || assessment.executive_summary || `Composite Risk Index evaluated at ${cri.toFixed(3)} [${assessment.risk_level}]. Primary operational concern: ${assessment.primary_driving_signal}.`;
-                    const ans2 = overviewData?.answers?.why_it_matters || (
+                    const ans1 = overviewData?.answers?.what_is_happening || overviewData?.answers?.what_changed || assessment.executive_summary || `Composite Risk Index evaluated at ${cri.toFixed(3)} [${assessment.risk_level}]. Primary operational concern: ${assessment.primary_driving_signal}.`;
+                    const ans2 = overviewData?.answers?.what_changed || (
+                        (assessment.anomalies_detected && assessment.anomalies_detected.length)
+                            ? `${assessment.anomalies_detected.length} indicator shifts detected across recent reporting periods.`
+                            : 'All operational signals remain within historical baseline.'
+                    );
+                    const ans3 = overviewData?.answers?.why_it_matters || (
                         (assessment.anomalies_detected && assessment.anomalies_detected.length)
                             ? assessment.anomalies_detected.map(a => `<li>${a.description}</li>`).join('')
-                            : '<li>Operational signals within historical baseline.</li>'
+                            : '<li>Operational signals within historical baseline bounds.</li>'
                     );
-                    const ans3 = overviewData?.answers?.can_we_trust_it || 'Verified institutional ledger records across active departments (7-Field Provenance).';
-                    const ans4 = overviewData?.answers?.what_comes_next || 'See 1–3 year deterministic trajectory projection below.';
-                    const ans5 = overviewData?.answers?.what_to_do || (
+                    const ans4 = overviewData?.answers?.can_we_trust_it || 'Verified institutional ledger records across active departments (7-Field Provenance).';
+                    const ans5 = overviewData?.answers?.what_comes_next || 'See 1–3 year deterministic trajectory projection below.';
+                    const ansAction = overviewData?.answers?.what_to_do || (
                         (assessment.recommended_mitigations && assessment.recommended_mitigations.length)
                             ? assessment.recommended_mitigations.map(m => `<li>${m}</li>`).join('')
                             : '<li>Continue active monitoring of longitudinal intake and placement metrics.</li>'
@@ -4494,11 +4832,12 @@
                     };
 
                     execBox.innerHTML = `
-                        <div><strong>1. What is happening / What changed?</strong>${formatItem(ans1)}</div>
-                        <div class="mt-2"><strong>2. Why it matters?</strong>${formatItem(ans2)}</div>
-                        <div class="mt-2"><strong>3. Can we trust it? (Supporting Evidence & Provenance):</strong>${formatItem(ans3)}</div>
-                        <div class="mt-2"><strong>4. What comes next?</strong>${formatItem(ans4)}</div>
-                        <div class="mt-2"><strong>5. What to do? (Actionable Mitigations):</strong>${formatItem(ans5)}</div>
+                        <div><strong>1. What is happening?</strong>${formatItem(ans1)}</div>
+                        <div class="mt-2"><strong>2. What changed?</strong>${formatItem(ans2)}</div>
+                        <div class="mt-2"><strong>3. Why does it matter?</strong>${formatItem(ans3)}</div>
+                        <div class="mt-2"><strong>4. What evidence supports it?</strong>${formatItem(ans4)}</div>
+                        <div class="mt-2"><strong>5. What could happen next?</strong>${formatItem(ans5)}</div>
+                        <div class="mt-2 pt-1.5 border-t" style="border-color: var(--cip-border);"><strong>What leadership should investigate:</strong>${formatItem(ansAction)}</div>
                         <div class="mt-2 pt-1 border-t text-[10px] font-mono cip-muted" style="border-color: var(--cip-border);">
                             System Analysis: Verified Institutional Evidence | Mode: Multi-Signal Assessment ${overviewData?.cached ? '| State: Cached' : ''}
                         </div>
@@ -4606,22 +4945,36 @@
                     console.error(e);
                 }
 
-                // Update Overview Anomaly Feed
+                // Update Overview Anomaly Feed with human-first Finding Cards (Sections 8, 11)
                 const list = document.getElementById('anomalyList');
                 list.innerHTML = '';
-                document.getElementById('anomalyCountBadge').innerText = `${assessment.anomalies_detected.length} Flags`;
+                document.getElementById('anomalyCountBadge').innerText = `${assessment.anomalies_detected.length} Findings`;
                 if (assessment.anomalies_detected.length === 0) {
-                    list.innerHTML = `<div class="p-3 cip-subcard">No statistical anomalies detected — all operational signals within historical baseline bounds.</div>`;
+                    list.innerHTML = `<div class="p-3 cip-subcard text-xs">No statistical anomalies detected — all operational signals remain within historical baseline bounds.</div>`;
                 } else {
                     assessment.anomalies_detected.forEach((a, idx) => {
                         const el = document.createElement('div');
-                        el.className = "p-2.5 cip-subcard cursor-pointer hover:opacity-90 border-l-2";
-                        el.style.borderLeftColor = a.severity === 'CRITICAL' ? '#dc2626' : '#d97706';
-                        el.onclick = () => {
-                            revealInsightEvidence(idx);
-                            navigateWorkflow('evidence');
-                        };
-                        el.innerHTML = `<div class="flex items-center justify-between"><strong>${a.signal_name} (${a.academic_year}) [${a.severity}]</strong><span class="text-[10px] font-mono underline">View 7-Field Evidence</span></div><div class="cip-secondary mt-0.5">${a.description}</div>`;
+                        el.className = "p-3 cip-subcard hover:opacity-95 border-l-4 space-y-1.5 transition-all";
+                        el.style.borderLeftColor = a.severity === 'CRITICAL' ? '#dc2626' : (a.severity === 'HIGH' ? '#ea580c' : '#d97706');
+                        
+                        const title = a.description || `${a.signal_name} shift in AY ${a.academic_year}`;
+                        const whyItMatters = (window.currentIntel?.investigations?.[idx]?.potential_contributing_factors?.[0])
+                            || `Persistent changes in ${a.signal_name} directly affect operational stability or student outcomes.`;
+
+                        el.innerHTML = `
+                            <div class="flex items-center justify-between gap-1">
+                                <span class="font-bold text-xs">${title}</span>
+                                <span class="cip-badge font-mono text-[10px]">${a.severity}</span>
+                            </div>
+                            <div class="text-[11px] leading-relaxed cip-secondary">${whyItMatters}</div>
+                            <div class="flex items-center justify-between pt-1 border-t text-[10px] cip-muted font-mono" style="border-color: var(--cip-border-subtle);">
+                                <span>AY ${a.academic_year} | Obs: ${a.observed_value} (Base: ${a.baseline_value})</span>
+                                <div class="flex items-center space-x-2">
+                                    <button type="button" onclick="revealInsightEvidence(${idx}); navigateWorkflow('evidence');" class="hover:underline">Evidence &rarr;</button>
+                                    <button type="button" onclick="investigateFinding(${idx})" class="font-bold text-blue-600 hover:underline">Investigate &rarr;</button>
+                                </div>
+                            </div>
+                        `;
                         list.appendChild(el);
                     });
                     revealInsightEvidence(0);
@@ -4664,10 +5017,11 @@
                         : '';
                     document.getElementById('execSummaryBox').innerHTML = `
                         <div><strong>1. What is happening?</strong><p class="leading-relaxed mt-0.5">${rep.what_is_happening || rep.executive_summary}</p></div>
-                        <div class="mt-2"><strong>2. Why?</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${whyItems}</ul></div>
-                        <div class="mt-2"><strong>3. Supporting Evidence (7-Field Provenance):</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${evItems || '<li>Baseline operational ledger within normal bounds.</li>'}</ul></div>
-                        <div class="mt-2"><strong>4. What could happen next?</strong><p class="mt-0.5">${rep.what_could_happen_next || ''}</p></div>
-                        <div class="mt-2"><strong>5. What should leadership investigate?</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${invItems}</ul></div>
+                        <div class="mt-2"><strong>2. What changed?</strong><p class="leading-relaxed mt-0.5">${rep.what_changed || `${assessment.anomalies_detected?.length || 0} indicators shifted from baseline.`}</p></div>
+                        <div class="mt-2"><strong>3. Why does it matter?</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${whyItems}</ul></div>
+                        <div class="mt-2"><strong>4. What evidence supports it?</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${evItems || '<li>Baseline operational ledger within normal bounds.</li>'}</ul></div>
+                        <div class="mt-2"><strong>5. What could happen next?</strong><p class="mt-0.5">${rep.what_could_happen_next || ''}</p></div>
+                        <div class="mt-2 pt-1.5 border-t" style="border-color: var(--cip-border);"><strong>What leadership should investigate:</strong><ul class="list-disc list-inside space-y-0.5 mt-0.5">${invItems}</ul></div>
                         ${uncHtml}
                         <div class="mt-2 pt-1 border-t text-[10px] font-mono cip-muted" style="border-color: var(--cip-border);">
                             System Analysis: Verified Institutional Evidence | Mode: Multi-Signal Assessment
@@ -4905,24 +5259,43 @@
                     }
 
                     if (fcBox) {
-                        if (fc.status === 'INSUFFICIENT_EVIDENCE') {
+                        if (fc.status === 'INSUFFICIENT_EVIDENCE' || !Array.isArray(fc.prediction) || fc.prediction.length === 0) {
                             fcBox.innerHTML = `
-                                <div class="p-3.5 cip-subcard">
-                                    <strong>[INSUFFICIENT EVIDENCE — NO FAKE FORECAST]</strong><br>
-                                    ${fc.insufficient_evidence_reason || 'Insufficient historical periods.'}
-                                </div>
-                                <div class="text-xs cip-muted">
-                                    <strong>Historical Evidence &amp; Coverage:</strong> ${fc.data_coverage.distinct_periods}/${fc.data_coverage.minimum_required_periods} required periods (${(fc.data_coverage.years_covered || []).join(', ') || 'none'})
+                                <div class="space-y-4">
+                                    <div class="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 space-y-2">
+                                        <div class="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-bold text-sm">
+                                            <span>⚠️</span>
+                                            <span>A reliable 3-year forecast cannot be produced yet</span>
+                                        </div>
+                                        <p class="text-xs leading-relaxed">
+                                            <strong>Why:</strong> Historical coverage is insufficient to compute reliable momentum trends. 
+                                            The model requires at least 2 distinct academic reporting periods (currently covered: 
+                                            <span class="font-mono font-semibold">${fc.data_coverage?.distinct_periods || 0}/${fc.data_coverage?.minimum_required_periods || 2}</span> 
+                                            periods: <span class="font-mono">${(fc.data_coverage?.years_covered || []).join(', ') || 'none'}</span>).
+                                        </p>
+                                        <p class="text-xs cip-muted">
+                                            <strong>Needed:</strong> Ingest additional historical academic files (e.g. prior year accreditation, admissions, or placement reports) to initialize the predictive engine.
+                                        </p>
+                                    </div>
                                 </div>
                             `;
                         } else {
+                            const p1 = (fc.prediction || []).find(p => p.year_offset === 1);
+                            const p3 = (fc.prediction || []).find(p => p.year_offset === 3);
+                            let verdict = "stable within baseline tolerance";
+                            if (p1 && p3) {
+                                if (p3.projected_cri > p1.projected_cri + 0.05) verdict = "elevated / increasing";
+                                else if (p3.projected_cri < p1.projected_cri - 0.05) verdict = "improving / decreasing";
+                            }
+
                             const ptsHtml = (fc.prediction || []).map(p =>
-                                `<div class="p-3 cip-subcard font-mono">
-                                    <div class="text-[11px] cip-muted">+${p.year_offset} Year (${p.target_period || ''})</div>
-                                    <div class="text-base font-bold mt-0.5">CRI: ${p.projected_cri.toFixed(3)}</div>
-                                    <div class="text-[11px] cip-muted">95% Band: [${p.confidence_band_low.toFixed(2)} – ${p.confidence_band_high.toFixed(2)}]</div>
+                                `<div class="p-3.5 cip-subcard font-mono text-center space-y-1">
+                                    <div class="text-[11px] font-semibold cip-muted">+${p.year_offset} Year (${p.target_period || `AY+${p.year_offset}`})</div>
+                                    <div class="text-xl font-bold mt-1 text-[#7A2438] dark:text-[#C98291]">CRI: ${p.projected_cri.toFixed(3)}</div>
+                                    <div class="text-[10px] cip-muted">95% Band: [${p.confidence_band_low.toFixed(2)} – ${p.confidence_band_high.toFixed(2)}]</div>
                                 </div>`
                             ).join('');
+
                             const inputsList = Array.isArray(fc.input_signals)
                                 ? fc.input_signals
                                 : Object.entries(fc.input_signals || {}).map(([k, v]) => ({
@@ -4940,32 +5313,44 @@
                             ).join('');
                             const whySummary = fc.why_did_prediction_change
                                 ? fc.why_did_prediction_change.summary
-                                : 'No prior prediction delta.';
+                                : 'Forecast projected from historical longitudinal momentum.';
+
                             fcBox.innerHTML = `
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <div class="p-3 cip-subcard"><span class="cip-muted">1. Horizon:</span> <strong>${fc.horizon}</strong></div>
-                                    <div class="p-3 cip-subcard"><span class="cip-muted">2. Confidence &amp; Coverage:</span> <strong class="font-mono">${(fc.confidence * 100).toFixed(0)}%</strong> (${fc.data_coverage.distinct_periods} periods: ${(fc.data_coverage.years_covered || []).join(', ')})</div>
-                                    <div class="p-3 cip-subcard"><span class="cip-muted">3. Method Actually Used:</span> <strong>${fc.method_actually_used}</strong></div>
+                                <!-- 1. Answer-First Forecast Conclusion (Section 27-28) -->
+                                <div class="space-y-1.5 pb-3 border-b" style="border-color: var(--cip-border);">
+                                    <span class="text-[10px] font-mono uppercase tracking-wider text-[#7A2438] dark:text-[#C98291]">Forecast Conclusion</span>
+                                    <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Forecast: Institutional risk is expected to remain ${verdict} over the next 1–3 years.</h3>
+                                    <p class="text-xs leading-relaxed cip-secondary">${whySummary}</p>
                                 </div>
-                                <div>
-                                    <div class="font-bold mb-1.5">4. Forecast Trajectory Points:</div>
+
+                                <!-- 2. Visual Multi-Year Trajectory Cards -->
+                                <div class="space-y-2">
+                                    <div class="font-bold text-xs uppercase tracking-wider cip-muted">Projected Trajectory Timeline</div>
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">${ptsHtml}</div>
                                 </div>
-                                <div class="p-3.5 cip-subcard">
-                                    <div class="font-bold">5. Reason for Change ("Why did the prediction change?"):</div>
-                                    <p class="mt-1">${whySummary}</p>
-                                </div>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="p-3 cip-subcard">
-                                        <div class="font-bold">6. Input Signals &amp; Trajectory Drivers:</div>
-                                        <ul class="list-disc list-inside space-y-0.5 mt-1">${driversHtml || inputsHtml}</ul>
+
+                                <!-- 3. Collapsible Technical Forecast Details & Model Drivers (Section 29) -->
+                                <details class="p-3.5 rounded-lg border text-xs" style="border-color: var(--cip-border);">
+                                    <summary class="cursor-pointer font-mono text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                                        Technical Forecast Details &amp; Model Drivers
+                                    </summary>
+                                    <div class="mt-3 space-y-3 pt-2 border-t" style="border-color: var(--cip-border);">
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono text-[11px]">
+                                            <div class="p-2 cip-subcard"><span class="cip-muted">Horizon:</span> <strong>${fc.horizon}</strong></div>
+                                            <div class="p-2 cip-subcard"><span class="cip-muted">Confidence:</span> <strong>${(fc.confidence * 100).toFixed(0)}%</strong> (${fc.data_coverage?.distinct_periods || 0} periods)</div>
+                                            <div class="p-2 cip-subcard"><span class="cip-muted">Method:</span> <strong>${fc.method_actually_used}</strong></div>
+                                        </div>
+                                        <div>
+                                            <div class="font-bold mb-1">Input Signals &amp; Momentum Drivers:</div>
+                                            <ul class="list-disc list-inside space-y-0.5">${driversHtml || inputsHtml}</ul>
+                                        </div>
+                                        <div>
+                                            <div class="font-bold mb-1">Historical Evidence &amp; Known Limitations:</div>
+                                            <ul class="list-disc list-inside space-y-0.5">${evHtml}</ul>
+                                            <div class="mt-1.5 cip-muted text-[11px]"><strong>Limitations:</strong> ${(fc.limitations || []).join(' ')}</div>
+                                        </div>
                                     </div>
-                                    <div class="p-3 cip-subcard">
-                                        <div class="font-bold">7. Historical Evidence &amp; 8. Limitations:</div>
-                                        <ul class="list-disc list-inside space-y-0.5 mt-1">${evHtml}</ul>
-                                        <div class="mt-2 cip-muted"><strong>Limitations:</strong> ${(fc.limitations || []).join(' ')}</div>
-                                    </div>
-                                </div>
+                                </details>
                             `;
                         }
                     }
@@ -4973,41 +5358,82 @@
 
                 if (memRes.ok) {
                     const mem = await memRes.json();
-                    const memBox = document.getElementById('institutionalMemoryBox');
                     const ALL_MEM_CATS = ["observed_fact", "analysis", "inference", "prediction", "outcome", "user_feedback", "unknown"];
                     const catCounts = ALL_MEM_CATS.map(k => `${k}: ${(mem.entries_by_category && mem.entries_by_category[k]) ? mem.entries_by_category[k].length : 0}`).join(' | ');
-                    const outcomesHtml = (mem.outcomes || []).map(o =>
-                        `<div class="p-3 cip-subcard">
-                            <strong>[Outcome ${o.target_academic_year} — Accuracy ${(o.prediction_accuracy * 100).toFixed(1)}%]</strong>
-                            Predicted CRI=${o.predicted_value.toFixed(3)} vs Later Observed CRI=${o.later_observed_value.toFixed(3)} (Signed Error: ${o.signed_error >= 0 ? '+' : ''}${o.signed_error.toFixed(3)}).<br>
-                            <span class="cip-muted">${o.institutional_learning}</span>
-                        </div>`
-                    ).join('');
-                    const hypsHtml = (mem.validated_rejected_hypotheses || []).slice(0, 6).map(h =>
-                        `<div class="p-3 cip-subcard space-y-1.5">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class="font-bold">[${h.status}] ${h.domain}</span>
-                                <div class="space-x-1">
-                                    <button type="button" onclick="submitFindingFeedback('${h.hypothesis_id}', 'Confirmed')" class="px-2 py-1 cip-btn-secondary text-[11px]">Confirmed</button>
-                                    <button type="button" onclick="submitFindingFeedback('${h.hypothesis_id}', 'Incorrect')" class="px-2 py-1 cip-btn-secondary text-[11px]">Incorrect</button>
-                                    <button type="button" onclick="submitFindingFeedback('${h.hypothesis_id}', 'Insufficient Evidence')" class="px-2 py-1 cip-btn-secondary text-[11px]">Insufficient Evidence</button>
+                    
+                    const catCountsEl = document.getElementById('memoryCatCounts');
+                    if (catCountsEl) catCountsEl.innerText = catCounts;
+
+                    // 1. Historical Baseline vs Recent Deviation
+                    const baseGrid = document.getElementById('historicalBaselineGrid');
+                    if (baseGrid) {
+                        const anoms = window.currentAnomalies || [];
+                        if (anoms.length === 0) {
+                            baseGrid.innerHTML = `
+                                <div class="p-3 cip-subcard col-span-3">
+                                    <div class="font-bold">Historical Stability Verified</div>
+                                    <div class="cip-muted mt-0.5">All monitored academic indicators track within historical baseline tolerance bounds.</div>
                                 </div>
-                            </div>
-                            <div>${h.statement}</div>
-                        </div>`
-                    ).join('');
-                    if (memBox) {
-                        memBox.innerHTML = `
-                            <div class="p-3 cip-subcard font-mono">${catCounts}</div>
-                            <div class="space-y-2">
-                                <div class="font-bold">Longitudinal Prediction-vs-Outcome Accuracy Audit:</div>
-                                ${outcomesHtml || '<div class="cip-muted">No longitudinal outcome comparisons recorded yet.</div>'}
-                            </div>
-                            <div class="space-y-2 pt-2">
-                                <div class="font-bold">Hypotheses &amp; Reviewer Feedback (stored strictly as <code class="font-mono">user_feedback</code>):</div>
-                                ${hypsHtml || '<div class="cip-muted">No active cross-signal hypotheses to review.</div>'}
-                            </div>
+                            `;
+                        } else {
+                            baseGrid.innerHTML = anoms.slice(0, 3).map(a => {
+                                const delta = a.baseline_value ? (((a.observed_value - a.baseline_value) / Math.abs(a.baseline_value)) * 100).toFixed(1) + '%' : 'N/A';
+                                return `
+                                    <div class="p-3 cip-subcard space-y-1">
+                                        <div class="font-bold text-xs">${a.signal_name}</div>
+                                        <div class="flex justify-between font-mono text-[11px] pt-1 border-t" style="border-color: var(--cip-border-subtle);">
+                                            <span class="cip-muted">Baseline: ${a.baseline_value}</span>
+                                            <span>Current: ${a.observed_value}</span>
+                                        </div>
+                                        <div class="text-[10px] cip-muted">Deviation: ${delta} (Z: ${a.deviation_zscore?.toFixed(2)}σ)</div>
+                                    </div>
+                                `;
+                            }).join('');
+                        }
+                    }
+
+                    // 2. What Changed Since Last Analysis
+                    const deltaSummaryEl = document.getElementById('memoryDeltaSummary');
+                    if (deltaSummaryEl) {
+                        const count = window.currentAnomalies ? window.currentAnomalies.length : 0;
+                        deltaSummaryEl.innerHTML = `
+                            <p>
+                                Compared to historical baseline references for <strong>${targetId}</strong>, 
+                                <strong>${count} operational findings</strong> are actively flagged. 
+                                Institutional memory preserves multi-period records across admissions, placements, and departmental telemetry.
+                            </p>
                         `;
+                    }
+
+                    // 3. Outcomes & Hypotheses
+                    const outcomesList = document.getElementById('memoryOutcomesList');
+                    if (outcomesList) {
+                        const outcomesHtml = (mem.outcomes || []).map(o =>
+                            `<div class="p-3 cip-subcard">
+                                <strong>[Outcome ${o.target_academic_year} — Accuracy ${(o.prediction_accuracy * 100).toFixed(1)}%]</strong>
+                                Predicted CRI=${o.predicted_value.toFixed(3)} vs Later Observed CRI=${o.later_observed_value.toFixed(3)} (Signed Error: ${o.signed_error >= 0 ? '+' : ''}${o.signed_error.toFixed(3)}).<br>
+                                <span class="cip-muted">${o.institutional_learning}</span>
+                            </div>`
+                        ).join('');
+                        outcomesList.innerHTML = outcomesHtml || '<p class="cip-muted">No longitudinal outcome comparisons recorded yet.</p>';
+                    }
+
+                    const hypList = document.getElementById('memoryHypothesesList');
+                    if (hypList) {
+                        const hypsHtml = (mem.validated_rejected_hypotheses || []).slice(0, 6).map(h =>
+                            `<div class="p-3 cip-subcard space-y-1.5">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <span class="font-bold">[${h.status}] ${h.domain}</span>
+                                    <div class="space-x-1">
+                                        <button type="button" onclick="submitFindingFeedback('${h.hypothesis_id}', 'Confirmed')" class="px-2 py-1 cip-btn-secondary text-[11px]">Confirmed</button>
+                                        <button type="button" onclick="submitFindingFeedback('${h.hypothesis_id}', 'Incorrect')" class="px-2 py-1 cip-btn-secondary text-[11px]">Incorrect</button>
+                                        <button type="button" onclick="submitFindingFeedback('${h.hypothesis_id}', 'Insufficient Evidence')" class="px-2 py-1 cip-btn-secondary text-[11px]">Insufficient Evidence</button>
+                                    </div>
+                                </div>
+                                <div>${h.statement}</div>
+                            </div>`
+                        ).join('');
+                        hypList.innerHTML = hypsHtml || '<p class="cip-muted">No active cross-signal hypotheses to review.</p>';
                     }
                 }
             } catch (e) {

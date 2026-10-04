@@ -721,9 +721,15 @@ async def login_json(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
         )
+    forwarded = getattr(sent, "forwarded_to", None)
+    challenge_msg = (
+        f"A single-use 6-digit verification code has been dispatched. (In Resend Sandbox mode, code was delivered to registered developer email {forwarded})."
+        if forwarded
+        else "A single-use 6-digit verification code has been dispatched to your email."
+    )
     return OTPChallengeResponse(
         status="AWAITING_OTP",
-        message="A single-use 6-digit verification code has been dispatched to your email.",
+        message=challenge_msg,
         email=req.email,
         purpose="login",
         expires_in_seconds=300,
@@ -821,9 +827,15 @@ async def signup(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
         )
+    forwarded = getattr(sent, "forwarded_to", None)
+    challenge_msg = (
+        f"A single-use 6-digit verification code has been dispatched. (In Resend Sandbox mode, code was delivered to registered developer email {forwarded})."
+        if forwarded
+        else "A single-use 6-digit verification code has been dispatched to your email."
+    )
     return OTPChallengeResponse(
         status="AWAITING_OTP",
-        message="A single-use 6-digit verification code has been dispatched to your email.",
+        message=challenge_msg,
         email=req.email,
         purpose="signup",
         expires_in_seconds=300,
@@ -973,9 +985,15 @@ async def resend_otp(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
         )
+    forwarded = getattr(sent, "forwarded_to", None)
+    resend_msg = (
+        f"A new verification code has been dispatched. (In Resend Sandbox mode, code was delivered to registered developer email {forwarded})."
+        if forwarded
+        else "A new verification code has been dispatched to your email."
+    )
     return {
         "status": "SENT",
-        "message": "A new verification code has been dispatched to your email.",
+        "message": resend_msg,
         "email": req.email,
         "purpose": req.purpose,
         "expires_in_seconds": 300,

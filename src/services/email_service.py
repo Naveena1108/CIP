@@ -88,16 +88,23 @@ def render_otp_html(recipient_email: str, otp_code: str, purpose: str = "login")
 
 class EmailDeliveryResult:
     """Result container that evaluates as boolean and exposes error details."""
-    def __init__(self, success: bool, error: Optional[str] = None, provider: Optional[str] = None):
+    def __init__(
+        self,
+        success: bool,
+        error: Optional[str] = None,
+        provider: Optional[str] = None,
+        forwarded_to: Optional[str] = None,
+    ):
         self.success = success
         self.error = error
         self.provider = provider
+        self.forwarded_to = forwarded_to
 
     def __bool__(self) -> bool:
         return self.success
 
     def __repr__(self) -> str:
-        return f"<EmailDeliveryResult success={self.success} provider={self.provider} error={self.error}>"
+        return f"<EmailDeliveryResult success={self.success} provider={self.provider} forwarded_to={self.forwarded_to} error={self.error}>"
 
 
 def send_otp_email(
@@ -175,6 +182,46 @@ def send_otp_email(
             if resp.status_code in (200, 201):
                 logger.info(f"Successfully dispatched OTP email via Resend API to {recipient_email} (purpose: {purpose}).")
                 return EmailDeliveryResult(True, provider="RESEND")
+            elif resp.status_code == 403 and "testing emails to your own email address" in resp.text:
+                # Handle unverified Resend domain sandbox restriction:
+                # Resend restricts emails to the developer's registered address until a domain is verified.
+                import re
+                m = re.search(r"to your own email address \(([^)]+)\)", resp.text)
+                sandbox_owner = m.group(1) if m else "bsainaveena.aiml.rymec@gmail.com"
+                logger.warning(
+                    f"Resend Sandbox mode: forwarding verification code for {recipient_email} to registered developer {sandbox_owner}."
+                )
+                sandbox_html = (
+                    f"<div style='background-color: #FEF3C7; border: 1px solid #F59E0B; padding: 14px 18px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; color: #92400E;'>"
+                    f"<strong>[Resend Sandbox Notice]</strong> This code was requested for <strong>{recipient_email}</strong>. "
+                    f"Because Resend is currently using test domain <code>onboarding@resend.dev</code>, the code was routed to your verified developer email."
+                    f"</div>"
+                    + html_content
+                )
+                sandbox_text = (
+                    f"[Resend Sandbox Notification for {recipient_email}]\n"
+                    f"Verification code: {otp_code}\n\n"
+                    + plain_text
+                )
+                fb_resp = httpx.post(
+                    "https://api.resend.com/emails",
+                    headers={"Authorization": f"Bearer {resend_api_key}", "Content-Type": "application/json"},
+                    json={
+                        "from": from_addr,
+                        "to": [sandbox_owner],
+                        "subject": f"[Resend Sandbox: Code for {recipient_email}] Your CIP Verification Code",
+                        "html": sandbox_html,
+                        "text": sandbox_text,
+                    },
+                    timeout=10.0,
+                )
+                if fb_resp.status_code in (200, 201):
+                    logger.info(f"Successfully forwarded OTP email via Resend Sandbox to {sandbox_owner} for {recipient_email}.")
+                    return EmailDeliveryResult(True, provider="RESEND_SANDBOX_FORWARD", forwarded_to=sandbox_owner)
+                else:
+                    err_msg = f"Resend API sandbox forward returned HTTP {fb_resp.status_code}: {fb_resp.text}"
+                    logger.error(f"Resend API email dispatch failed for {recipient_email}: {err_msg}")
+                    return EmailDeliveryResult(False, error=err_msg, provider="RESEND")
             else:
                 err_msg = f"Resend API returned HTTP {resp.status_code}: {resp.text}"
                 logger.error(f"Resend API email dispatch failed for {recipient_email}: {err_msg}")

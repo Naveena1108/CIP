@@ -1,5 +1,5 @@
 """
-CIP Phase 4 Contracts: Explainable Forecasting, What-If Analysis, and Institutional Memory.
+CIP Phase 4 Contracts: Explainable Forecasting and Institutional Memory.
 
 Enforces:
 1. Explainable Forecasting:
@@ -8,11 +8,7 @@ Enforces:
    - Explicit INSUFFICIENT_EVIDENCE state when historical data is insufficient (< 2 periods).
    - Deterministic "Why did the prediction change?" attributing forecast shifts to exact changed inputs.
    - Zero LLM invention of forecast values or methodology.
-2. What-If Analysis:
-   - Replaces "Forward Trajectory Simulator" with "What-If Analysis".
-   - Exposes baseline, intervention, projected_trajectory, estimated_risk_change, reason_for_change.
-   - Every user control corresponds strictly to a real mathematical model input.
-3. Institutional Memory & Learning Loop:
+2. Institutional Memory & Learning Loop:
    - Distinct persisted categories: observed_fact, analysis, inference, prediction,
      outcome, user_feedback, unknown.
    - Stores historical_signals, baselines, previous_analyses, predictions, interventions,
@@ -133,62 +129,6 @@ class ExplainableForecast(BaseModel):
     alternative_explanations: List[str] = Field(default_factory=list)
     trajectory_drivers: List[TrajectoryDriver] = Field(default_factory=list)
     why_did_prediction_change: Optional[ForecastChangeExplanation] = None
-
-
-class WhatIfControlMapping(BaseModel):
-    """Maps a user control to an exact model slope parameter."""
-    control_key: str
-    control_value: float
-    target_model_input: str
-    original_input_value: float
-    modified_input_value: float
-    mathematical_effect: str
-
-
-class WhatIfBaselineSummary(BaseModel):
-    """Status-quo baseline trajectory prior to intervention."""
-    current_cri: float
-    feature_slopes: Dict[str, float]
-    baseline_trajectory: List[ForecastTrajectoryPoint]
-    terminal_projected_cri: Optional[float] = None
-    method_used: str
-
-
-class WhatIfInterventionSpec(BaseModel):
-    """Intervention parameters and their exact mapping to model inputs."""
-    applied_controls: Dict[str, float]
-    modified_slopes: Dict[str, float]
-    control_mappings: List[WhatIfControlMapping] = Field(default_factory=list)
-
-
-class WhatIfRiskDelta(BaseModel):
-    """Estimated risk change produced by the intervention."""
-    year_1_cri_delta: float
-    terminal_cri_delta: float
-    risk_reduction_achieved: float
-    direction: Literal["RISK_REDUCED", "RISK_INCREASED", "NO_CHANGE"]
-
-
-class WhatIfAnalysisResponse(BaseModel):
-    """
-    CIP Phase 4 What-If Analysis Response.
-    Replaces 'Forward Trajectory Simulator' with 'What-If Analysis' while preserving
-    backward-compatible fields for existing API consumers.
-    """
-    institution_id: str
-    organization_id: Optional[str] = None
-    analysis_type: str = "What-If Analysis"
-    status: ForecastStatus = ForecastStatus.SUFFICIENT_EVIDENCE
-    baseline: WhatIfBaselineSummary
-    intervention: WhatIfInterventionSpec
-    projected_trajectory: List[ForecastTrajectoryPoint]
-    estimated_risk_change: WhatIfRiskDelta
-    reason_for_change: str
-    # Backward-compatible fields for /simulate endpoint
-    current_cri: float
-    status_quo_trajectory: List[ForecastTrajectoryPoint]
-    intervention_trajectory: List[ForecastTrajectoryPoint]
-    risk_reduction_achieved: float
 
 
 class InstitutionalMemoryEntry(BaseModel):

@@ -17,8 +17,7 @@ All 10 required executive workflows are integrated and self-contained:
 3. **Insights** (`#view-insights`): Plain-language prioritized insights with category and severity filters.
 4. **Risks** (`#view-risks`): Multi-dimensional institutional risk matrix and breakdown.
 5. **Predictions** (`#view-predictions`): On-demand forecast trajectories and confidence horizons.
-6. **What-If** (`#view-whatif`): Grounded counterfactual scenario simulation (no hardcoded fallbacks).
-7. **Evidence** (`#view-evidence`): Human-readable observations with expandable technical provenance tokens.
-8. **Data** (`#view-data`): Multi-format upload, ingestion state tracker, and active dataset management.
-9. **External Context** (`#view-osint`): External regulatory and sector developments without raw internal crawler telemetry.
-10. **Profile** (`#view-profile`): User account, role verification, and persistent institutional workspace selection.
+6. **Evidence** (`#view-evidence`): Human-readable observations with expandable technical provenance tokens.
+7. **Data** (`#view-data`): Multi-format upload, ingestion state tracker, and active dataset management.
+8. **External Context** (`#view-osint`): External regulatory and sector developments without raw internal crawler telemetry.
+9. **Profile** (`#view-profile`): User account, role verification, and persistent institutional workspace selection.

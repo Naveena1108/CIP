@@ -39,10 +39,6 @@ from src.contracts import (
     MemoryCategory,
     ExplainableForecast,
     ForecastChangeExplanation,
-    WhatIfBaselineSummary,
-    WhatIfInterventionSpec,
-    WhatIfRiskDelta,
-    WhatIfAnalysisResponse,
     InstitutionalMemoryEntry,
     PredictionOutcomeComparisonRequest,
     PredictionOutcomeComparison,
@@ -683,96 +679,7 @@ async def generate_or_get_prediction(
     return PredictionResponse(**resp_dict)
 
 
-class WhatIfInterventionRequest(BaseModel):
-    years_forward: int = Field(default=3, ge=1, le=5)
-    intervention_effects: Dict[str, float] = Field(
-        default_factory=lambda: {
-            "placement_boost": 0.0,
-            "vacancy_rate_reduction": 0.0,
-            "closing_rank_stabilization": 0.0,
-        }
-    )
 
-
-@router.post("/{institution_id}/what-if", response_model=WhatIfAnalysisResponse)
-@router.post("/{institution_id}/simulate", response_model=WhatIfAnalysisResponse)
-async def run_what_if_simulation(
-    institution_id: str,
-    req: WhatIfInterventionRequest,
-    session: AsyncSession = Depends(get_db_session),
-    current_user: UserModel = Depends(get_current_user),
-):
-    """
-    Execute deterministic What-If Analysis and intervention simulation (Part 26: What-If Analysis).
-    Every user control corresponds directly to a real mathematical model input in TrajectoryPredictor:
-    - placement_boost: increases placement_pct_slope (-0.35 weight in composite momentum)
-    - vacancy_rate_reduction: decreases vacancy_rate_slope (+0.40 weight in composite momentum)
-    - closing_rank_stabilization: decreases closing_rank_slope (+0.25 weight in composite momentum)
-    Rejects unsupported/decorative controls with HTTP 422.
-    """
-    cet, admissions, placements, dynamic_signals = await _load_signals_allow_sparse(
-        session, institution_id, current_user
-    )
-    if not (cet or admissions or placements or dynamic_signals):
-        p4_engine = ExplainableForecastingAndMemoryEngine()
-        return p4_engine.run_what_if_analysis(
-            institution_id=institution_id,
-            current_cri=0.0,
-            feature_slopes={},
-            intervention_effects=req.intervention_effects,
-            years_forward=req.years_forward,
-            latest_year=None,
-        )
-
-    # Calculate baseline CRI
-    engine = CrisisIntelligenceEngine()
-    assessment = engine.evaluate_institution(
-        institution_id=institution_id,
-        cet_history=cet,
-        admissions_history=admissions,
-        placements_history=placements,
-        dynamic_signals=dynamic_signals,
-    )
-    current_cri = round(assessment.composite_risk_index, 4)
-
-    # Extract features and compute slopes
-    dept_features = extract_institutional_features(cet, admissions, placements)
-    slopes = _compute_institutional_slopes(dept_features, admissions)
-
-    # Determine latest academic year if available
-    years_set = set()
-    for c in cet:
-        if c.academic_year:
-            years_set.add(c.academic_year)
-    for a in admissions:
-        if a.academic_year:
-            years_set.add(a.academic_year)
-    for p in placements:
-        if p.graduation_year:
-            years_set.add(p.graduation_year)
-    for d in dynamic_signals:
-        if d.context and d.context.academic_year:
-            years_set.add(d.context.academic_year)
-    latest_year = max(years_set) if years_set else None
-
-    p4_engine = ExplainableForecastingAndMemoryEngine()
-    try:
-        response = p4_engine.run_what_if_analysis(
-            institution_id=institution_id,
-            current_cri=current_cri,
-            feature_slopes=slopes,
-            intervention_effects=req.intervention_effects,
-            years_forward=req.years_forward,
-            latest_year=latest_year,
-        )
-    except ValueError as ve:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=str(ve),
-        )
-
-    response.organization_id = await _resolve_org_id(session, institution_id, current_user)
-    return response
 
 
 @router.get("/{institution_id}/report", response_model=ExecutiveNarrativeResponse)

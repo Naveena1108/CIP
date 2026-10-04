@@ -782,14 +782,6 @@
                             <span>Predictions</span>
                         </span>
                         <span id="navBadgePredictions" class="text-[11px] font-mono opacity-60">—</span>
-                    </button>
-                    <button type="button" id="nav-whatif" data-workflow="whatif" onclick="navigateWorkflow('whatif')" class="cip-nav-btn">
-                        <span class="flex items-center gap-2.5">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
-                            <span>What-If</span>
-                        </span>
-                        <span id="navBadgeWhatIf" class="text-[11px] font-mono opacity-60">—</span>
-                    </button>
                     <button type="button" id="nav-evidence" data-workflow="evidence" onclick="navigateWorkflow('evidence')" class="cip-nav-btn">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -931,7 +923,6 @@
                 <button type="button" id="float-nav-insights" onclick="navigateWorkflow('insights')" class="nav-pill">Insights</button>
                 <button type="button" id="float-nav-risks" onclick="navigateWorkflow('risks')" class="nav-pill">Risks</button>
                 <button type="button" id="float-nav-predictions" onclick="navigateWorkflow('predictions')" class="nav-pill">Predictions</button>
-                <button type="button" id="float-nav-whatif" onclick="navigateWorkflow('whatif')" class="nav-pill">What-If</button>
                 <button type="button" id="float-nav-evidence" onclick="navigateWorkflow('evidence')" class="nav-pill">Evidence</button>
                 <button type="button" id="float-nav-data" onclick="navigateWorkflow('data')" class="nav-pill">Data</button>
                 <button type="button" id="float-nav-osint" onclick="navigateWorkflow('osint')" class="nav-pill">External Context</button>
@@ -1494,144 +1485,6 @@
                 <!-- Answer-First Forecast Hero & Trajectory Container -->
                 <div id="explainableForecastBox" class="cip-card p-5 space-y-5 text-xs cip-secondary">
                     <p class="cip-muted">Click "Generate 3-Year Prediction" or evaluate an institution to view the 3-year autoregressive forecast.</p>
-                </div>
-            </section>
-
-            <!-- ===================================================================== -->
-            <!-- WORKFLOW 6: WHAT-IF INTERVENTION & POLICY SIMULATOR                   -->
-            <!-- Decision simulator with explicit non-guaranteed modeling disclaimer   -->
-            <!-- ===================================================================== -->
-            <section id="view-whatif" class="workflow-section hidden space-y-6">
-                <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
-                    <div>
-                        <div class="text-[11px] font-mono uppercase tracking-wider cip-muted">Trajectory Modeling &amp; Policy Planning</div>
-                        <h2 class="text-lg font-bold">What-If Decision Simulator</h2>
-                        <p class="text-xs cip-muted">Simulate administrative interventions against projected risk trends to observe expected risk reduction.</p>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        <button type="button" onclick="resetWhatIfSliders()" class="px-3 py-1.5 text-xs cip-btn-secondary">Reset Interventions</button>
-                        <span id="whatIfSimulationBadge" class="cip-badge font-mono">Status: Connected to Predictor</span>
-                    </div>
-                </div>
-
-                <!-- Explicit Simulation Disclaimer Notice (Section 32, 35) -->
-                <div class="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs flex items-center gap-2.5 text-amber-800 dark:text-amber-300">
-                    <span class="text-base">⚠️</span>
-                    <div>
-                        <strong>Model simulation only — not a guaranteed outcome.</strong>
-                        <span class="cip-muted ml-1">Sliders modify projected risk trends to estimate potential impact against historical baseline trends.</span>
-                    </div>
-                </div>
-
-                <!-- Interactive Policy Sliders -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="cip-card p-4 space-y-3">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold">1. Placement Rate Boost</label>
-                            <span id="plcBoostVal" data-alias="whatifPlacementDisplay" class="font-mono font-bold text-xs px-2 py-0.5 rounded" style="background-color: var(--cip-primary-soft); color: var(--cip-primary);">+5.0%</span>
-                        </div>
-                        <p class="text-[11px] cip-muted">Active employer drives, skill bootcamps, and career services intervention.</p>
-                        <input id="plcSlider" name="sliderPlacementBoost" type="range" min="0" max="20" step="0.5" value="5" oninput="onWhatIfSliderChange()" class="cip-slider w-full">
-                        <div class="flex justify-between text-[10px] font-mono cip-muted">
-                            <span>0% (Status Quo)</span>
-                            <span>+10%</span>
-                            <span>+20% Max</span>
-                        </div>
-                    </div>
-
-                    <div class="cip-card p-4 space-y-3">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold">2. Vacancy Rate Reduction</label>
-                            <span id="whatifVacancyDisplay" class="font-mono font-bold text-xs px-2 py-0.5 rounded" style="background-color: var(--cip-primary-soft); color: var(--cip-primary);">-10.0%</span>
-                        </div>
-                        <p class="text-[11px] cip-muted">Targeted admission marketing, quota adjustments, and student counseling.</p>
-                        <input id="vacSlider" name="sliderVacancyReduction" type="range" min="0" max="30" step="1" value="10" oninput="onWhatIfSliderChange()" class="cip-slider w-full">
-                        <div class="flex justify-between text-[10px] font-mono cip-muted">
-                            <span>0% (Status Quo)</span>
-                            <span>-15%</span>
-                            <span>-30% Max</span>
-                        </div>
-                    </div>
-
-                    <div class="cip-card p-4 space-y-3">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold">3. Closing Rank Stabilization</label>
-                            <span id="whatifRankDisplay" class="font-mono font-bold text-xs px-2 py-0.5 rounded" style="background-color: var(--cip-primary-soft); color: var(--cip-primary);">-5.0%</span>
-                        </div>
-                        <p class="text-[11px] cip-muted">Merit scholarships, academic brand elevation, and program accreditation.</p>
-                        <input id="sliderRankStabilization" type="range" min="0" max="25" step="0.5" value="5" oninput="onWhatIfSliderChange()" class="cip-slider w-full">
-                        <div class="flex justify-between text-[10px] font-mono cip-muted">
-                            <span>0% (Status Quo)</span>
-                            <span>-12.5%</span>
-                            <span>-25% Max</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Simulation Output & Comparison Card -->
-                <div class="cip-card p-5 space-y-5">
-                    <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
-                        <div>
-                            <h3 class="text-sm font-bold">SIMULATION IMPACT ANALYSIS</h3>
-                            <p class="text-xs cip-muted">Model output comparison: Status Quo baseline trajectory vs. With Intervention trajectory.</p>
-                        </div>
-                        <span id="whatIfResultStatus" class="cip-badge font-mono">Direction: STABILIZING</span>
-                    </div>
-
-                    <!-- Top 4 Impact Cards -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div class="p-3 cip-subcard space-y-1">
-                            <div class="text-[11px] font-mono uppercase cip-muted">Baseline (Year +3 CRI)</div>
-                            <div id="sqYr3Val" data-alias="whatifBaselineCri" class="text-xl font-bold font-mono">—</div>
-                            <div class="text-[10px] cip-muted">Latest evaluated risk index</div>
-                        </div>
-                        <div class="p-3 cip-subcard space-y-1">
-                            <div class="text-[11px] font-mono uppercase cip-muted">Intervention (Year +3 CRI)</div>
-                            <div id="ivYr3Val" data-alias="whatifProjectedCri" class="text-xl font-bold font-mono text-[#4F8068]">—</div>
-                            <div class="text-[10px] cip-muted">Post-intervention estimate</div>
-                        </div>
-                        <div class="p-3 cip-subcard space-y-1">
-                            <div class="text-[11px] font-mono uppercase cip-muted">Estimated Risk Change</div>
-                            <div id="whatifDeltaCri" class="text-xl font-bold font-mono text-[#4F8068]">—</div>
-                            <div class="text-[10px] cip-muted">Cumulative delta (Δ)</div>
-                        </div>
-                        <div class="p-3 cip-subcard space-y-1">
-                            <div class="text-[11px] font-mono uppercase cip-muted">Risk Trajectory</div>
-                            <div id="whatifOutcomeLabel" class="text-sm font-bold mt-1 text-[#4F8068]">AWAITING SIMULATION</div>
-                            <div class="text-[10px] cip-muted">Simulation — not an observed outcome</div>
-                        </div>
-                    </div>
-
-                    <!-- Multi-Year Horizon Comparison Table -->
-                    <div class="space-y-2">
-                        <div class="text-xs font-bold">Multi-Year Trajectory Points (Status Quo vs. Intervention)</div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-xs text-left">
-                                <thead>
-                                    <tr class="border-b" style="border-color: var(--cip-border); color: var(--cip-text-muted);">
-                                        <th class="py-2 pr-4 font-mono">Horizon</th>
-                                        <th class="py-2 px-4 font-mono">Status Quo CRI</th>
-                                        <th class="py-2 px-4 font-mono">Intervention CRI</th>
-                                        <th class="py-2 px-4 font-mono">Delta (Δ)</th>
-                                        <th class="py-2 pl-4 font-mono">Confidence Band [95%]</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="whatIfTrajectoryTableBody" data-alias="whatifComparisonTableBody" class="divide-y divide-gray-200 dark:divide-gray-800 font-mono">
-                                    <tr>
-                                        <td colspan="5" class="py-4 text-center cip-muted">Adjust sliders above to compute counterfactual simulation from current baseline.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Analytical Explanation -->
-                    <div id="whatifExplanationBox" class="p-3.5 cip-subcard text-xs space-y-1">
-                        <div class="font-bold">Explanation &amp; Reason for Change:</div>
-                        <p id="whatifExplanationText" class="cip-secondary leading-relaxed">
-                            Applying a +5.0% placement boost and 10% vacancy rate reduction offsets downward historical momentum. Under the autoregressive model, the composite slope is shifted towards recovery, reducing projected CRI over 3 forward periods.
-                        </p>
-                    </div>
                 </div>
             </section>
 
@@ -2314,9 +2167,6 @@
                     <button type="button" onclick="navigateWorkflow('predictions'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
                         <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">📈 Forecast</span>
                     </button>
-                    <button type="button" onclick="navigateWorkflow('whatif'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
-                        <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">✨ What-If Simulator</span>
-                    </button>
                     <button type="button" onclick="navigateWorkflow('evidence'); closeCommandSearch();" class="flex items-center gap-2 p-2.5 rounded-[14px] hover:bg-[#F3F0ED] dark:hover:bg-[#2D2128] text-left">
                         <span class="font-medium text-[#252124] dark:text-[#F8F7F4]">📑 Evidence Provenance</span>
                     </button>
@@ -2396,7 +2246,7 @@
         // =========================================================================
         const WORKFLOW_IDS = [
             'overview', 'investigations', 'insights', 'risks',
-            'predictions', 'whatif', 'evidence', 'data', 'memory', 'profile', 'osint'
+            'predictions', 'evidence', 'data', 'memory', 'profile', 'osint'
         ];
 
         const WORKFLOW_TITLES = {
@@ -2405,7 +2255,6 @@
             insights: { title: "Insights & Findings", subtitle: "Structured longitudinal insights categorized by magnitude and significance" },
             risks: { title: "Risk & Early Warnings", subtitle: "5-stage progression monitoring emerging risks before escalation" },
             predictions: { title: "Trajectory Forecast", subtitle: "Projected 1–3 year institutional risk trends and baseline indicators" },
-            whatif: { title: "What-If Simulator", subtitle: "Counterfactual intervention modeling with parameter-driven impact" },
             evidence: { title: "Supporting Evidence", subtitle: "Verified evidence trails grounding institutional findings" },
             data: { title: "Institutional Data", subtitle: "Multi-domain ingestion, canonical observations, and historical datasets" },
             osint: { title: "External Context", subtitle: "Real-time media sentiment, regulatory alerts, and ecosystem intelligence" },
@@ -2441,9 +2290,6 @@
                     }
                 }
             });
-            if (target === 'whatif') {
-                runWhatIfSimulation();
-            }
             if (target === 'evidence') {
                 if (window.cachedEvidenceCatalog && window.cachedEvidenceCatalog.insights && window.cachedEvidenceCatalog.insights.length > 0) {
                     revealInsightEvidence(0);
@@ -4738,8 +4584,6 @@
             if (navRisk) navRisk.innerText = '—';
             const navPred = document.getElementById('navBadgePredictions');
             if (navPred) navPred.innerText = '—';
-            const navWhatIf = document.getElementById('navBadgeWhatIf');
-            if (navWhatIf) navWhatIf.innerText = '—';
             const navEv = document.getElementById('navBadgeEvidence');
             if (navEv) navEv.innerText = '—';
             const navMem = document.getElementById('navBadgeMemory');
@@ -6419,225 +6263,6 @@
         }
 
         // =========================================================================
-        // WHAT-IF POLICY & INTERVENTION SIMULATOR (Phase 2)
-        // =========================================================================
-        let whatIfDebounceTimer = null;
-
-        function onWhatIfSliderChange() {
-            const pEl = document.getElementById('plcSlider') || document.getElementById('sliderPlacementBoost');
-            const vEl = document.getElementById('vacSlider') || document.getElementById('sliderVacancyReduction');
-            const rEl = document.getElementById('sliderRankStabilization');
-
-            const p = parseFloat(pEl ? pEl.value : 5);
-            const v = parseFloat(vEl ? vEl.value : 10);
-            const r = parseFloat(rEl ? rEl.value : 5);
-
-            const pDisp = document.getElementById('plcBoostVal') || document.getElementById('whatifPlacementDisplay');
-            const vDisp = document.getElementById('whatifVacancyDisplay');
-            const rDisp = document.getElementById('whatifRankDisplay');
-
-            if (pDisp) pDisp.innerText = `+${p.toFixed(1)}%`;
-            if (vDisp) vDisp.innerText = `-${v.toFixed(1)}%`;
-            if (rDisp) rDisp.innerText = `-${r.toFixed(1)}%`;
-
-            if (whatIfDebounceTimer) clearTimeout(whatIfDebounceTimer);
-            whatIfDebounceTimer = setTimeout(() => {
-                runWhatIfSimulation();
-            }, 120);
-        }
-
-        function resetWhatIfSliders() {
-            const pEl = document.getElementById('plcSlider') || document.getElementById('sliderPlacementBoost');
-            const vEl = document.getElementById('vacSlider') || document.getElementById('sliderVacancyReduction');
-            const rEl = document.getElementById('sliderRankStabilization');
-            if (pEl) pEl.value = 5;
-            if (vEl) vEl.value = 10;
-            if (rEl) rEl.value = 5;
-            onWhatIfSliderChange();
-        }
-
-        window.updateSimulation = async function() {
-            const pEl = document.getElementById('plcSlider') || document.getElementById('sliderPlacementBoost');
-            const vEl = document.getElementById('vacSlider') || document.getElementById('sliderVacancyReduction');
-            const rEl = document.getElementById('sliderRankStabilization');
-
-            const p = parseFloat(pEl ? pEl.value : 5);
-            const v = parseFloat(vEl ? vEl.value : 10);
-            const r = parseFloat(rEl ? rEl.value : 5);
-
-            const pDisp = document.getElementById('plcBoostVal') || document.getElementById('whatifPlacementDisplay');
-            const vDisp = document.getElementById('whatifVacancyDisplay');
-            const rDisp = document.getElementById('whatifRankDisplay');
-
-            if (pDisp) pDisp.innerText = `+${p.toFixed(1)}%`;
-            if (vDisp) vDisp.innerText = `-${v.toFixed(1)}%`;
-            if (rDisp) rDisp.innerText = `-${r.toFixed(1)}%`;
-
-            return await runWhatIfSimulation();
-        };
-
-        async function runWhatIfSimulation() {
-            const pEl = document.getElementById('plcSlider') || document.getElementById('sliderPlacementBoost');
-            const vEl = document.getElementById('vacSlider') || document.getElementById('sliderVacancyReduction');
-            const rEl = document.getElementById('sliderRankStabilization');
-
-            const p = parseFloat(pEl ? pEl.value : 5);
-            const v = parseFloat(vEl ? vEl.value : 10);
-            const r = parseFloat(rEl ? rEl.value : 5);
-
-            const badge = document.getElementById('whatIfSimulationBadge');
-            if (badge) badge.innerText = 'Status: Simulating...';
-
-            try {
-                const res = await authFetch(`/api/v1/institutions/${encodeURIComponent(currentInstitutionId)}/simulate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        institution_id: currentInstitutionId,
-                        intervention_effects: {
-                            placement_boost: p,
-                            vacancy_rate_reduction: v,
-                            closing_rank_stabilization: r
-                        },
-                        years_forward: 3
-                    })
-                });
-
-                if (!res.ok) {
-                    if (badge) badge.innerText = `Status: Simulation unavailable (${res.status})`;
-                    const baseCriEl = document.getElementById('sqYr3Val') || document.getElementById('whatifBaselineCri');
-                    const projCriEl = document.getElementById('ivYr3Val') || document.getElementById('whatifProjectedCri');
-                    const deltaCriEl = document.getElementById('whatifDeltaCri');
-                    const outcomeEl = document.getElementById('whatifOutcomeLabel');
-                    const statusBadge = document.getElementById('whatIfResultStatus');
-                    if (baseCriEl) baseCriEl.innerText = "—";
-                    if (projCriEl) projCriEl.innerText = "—";
-                    if (deltaCriEl) { deltaCriEl.innerText = "—"; deltaCriEl.style.color = "inherit"; }
-                    if (outcomeEl) { outcomeEl.innerText = "SIMULATION UNAVAILABLE"; outcomeEl.style.color = "inherit"; }
-                    if (statusBadge) statusBadge.innerText = "Status: Simulation unavailable";
-                    const tbody = document.getElementById('whatIfTrajectoryTableBody') || document.getElementById('whatifComparisonTableBody');
-                    if (tbody) {
-                        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable for current parameters.</td></tr>';
-                    }
-                    const expEl = document.getElementById('whatifExplanationText');
-                    if (expEl) expEl.innerText = "Simulation unavailable for this institution or parameters.";
-                    return;
-                }
-
-                const sim = await res.json();
-                if (badge) badge.innerText = 'Status: Connected to Predictor';
-
-                let sq3 = null;
-                let iv3 = null;
-
-                if (sim.status_quo_trajectory && sim.status_quo_trajectory.length >= 3) {
-                    sq3 = sim.status_quo_trajectory[2].projected_cri;
-                } else if (sim.baseline && sim.baseline.terminal_projected_cri !== undefined) {
-                    sq3 = sim.baseline.terminal_projected_cri;
-                } else if (sim.status_quo_trajectory && sim.status_quo_trajectory.length > 0) {
-                    sq3 = sim.status_quo_trajectory[sim.status_quo_trajectory.length - 1].projected_cri;
-                }
-
-                if (sim.intervention_trajectory && sim.intervention_trajectory.length >= 3) {
-                    iv3 = sim.intervention_trajectory[2].projected_cri;
-                } else if (sim.projected_trajectory && sim.projected_trajectory.length >= 3) {
-                    iv3 = sim.projected_trajectory[2].projected_cri;
-                } else if (sim.intervention_trajectory && sim.intervention_trajectory.length > 0) {
-                    iv3 = sim.intervention_trajectory[sim.intervention_trajectory.length - 1].projected_cri;
-                }
-
-                const baseCriEl = document.getElementById('sqYr3Val') || document.getElementById('whatifBaselineCri');
-                const projCriEl = document.getElementById('ivYr3Val') || document.getElementById('whatifProjectedCri');
-                const deltaCriEl = document.getElementById('whatifDeltaCri');
-                const outcomeEl = document.getElementById('whatifOutcomeLabel');
-                const statusBadge = document.getElementById('whatIfResultStatus');
-
-                if (sq3 === null || iv3 === null) {
-                    if (baseCriEl) baseCriEl.innerText = "—";
-                    if (projCriEl) projCriEl.innerText = "—";
-                    if (deltaCriEl) { deltaCriEl.innerText = "—"; deltaCriEl.style.color = "inherit"; }
-                    if (outcomeEl) { outcomeEl.innerText = "SIMULATION UNAVAILABLE"; outcomeEl.style.color = "inherit"; }
-                    if (statusBadge) statusBadge.innerText = "Status: Simulation unavailable";
-                    const tbody = document.getElementById('whatIfTrajectoryTableBody') || document.getElementById('whatifComparisonTableBody');
-                    if (tbody) {
-                        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable — insufficient baseline model data.</td></tr>';
-                    }
-                    const expEl = document.getElementById('whatifExplanationText');
-                    if (expEl) expEl.innerText = "Simulation unavailable: insufficient baseline observations.";
-                    return;
-                }
-
-                if (baseCriEl) baseCriEl.innerText = sq3.toFixed(3);
-                if (projCriEl) projCriEl.innerText = iv3.toFixed(3);
-                const delta = iv3 - sq3;
-                if (deltaCriEl) {
-                    deltaCriEl.innerText = (delta <= 0 ? '' : '+') + delta.toFixed(3);
-                    deltaCriEl.style.color = delta <= 0 ? '#4F8068' : '#A94A55';
-                }
-                if (outcomeEl) {
-                    outcomeEl.innerText = delta <= 0 ? 'RISK REDUCTION' : 'INCREASED RISK';
-                    outcomeEl.style.color = delta <= 0 ? '#4F8068' : '#A94A55';
-                }
-                if (statusBadge) {
-                    statusBadge.innerText = `Direction: ${delta <= 0 ? 'STABILIZING' : 'WORSENING'}`;
-                }
-
-                const tbody = document.getElementById('whatIfTrajectoryTableBody') || document.getElementById('whatifComparisonTableBody');
-                if (tbody) {
-                    const sqPts = sim.status_quo_trajectory || (sim.baseline ? sim.baseline.baseline_trajectory : []) || [];
-                    const ivPts = sim.intervention_trajectory || sim.projected_trajectory || [];
-                    const count = Math.max(sqPts.length, ivPts.length);
-                    if (count === 0) {
-                        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable — no trajectory points generated.</td></tr>';
-                    } else {
-                        let rowsHtml = '';
-                        for (let i = 0; i < count; i++) {
-                            const sqPt = sqPts[i];
-                            const ivPt = ivPts[i];
-                            if (!sqPt || !ivPt) continue;
-                            const offset = sqPt.year_offset || (i + 1);
-                            const ptDelta = ivPt.projected_cri - sqPt.projected_cri;
-                            const lowBand = ivPt.confidence_band_low !== undefined ? ivPt.confidence_band_low.toFixed(2) : '—';
-                            const highBand = ivPt.confidence_band_high !== undefined ? ivPt.confidence_band_high.toFixed(2) : '—';
-                            rowsHtml += `
-                                <tr>
-                                    <td class="py-2 pr-4 font-bold">Year +${offset}</td>
-                                    <td class="py-2 px-4">${sqPt.projected_cri.toFixed(3)}</td>
-                                    <td class="py-2 px-4 text-[#4F8068] font-bold">${ivPt.projected_cri.toFixed(3)}</td>
-                                    <td class="py-2 px-4 ${ptDelta <= 0 ? 'text-[#4F8068]' : 'text-[#A94A55]'} font-bold">${ptDelta <= 0 ? '' : '+'}${ptDelta.toFixed(3)}</td>
-                                    <td class="py-2 pl-4 cip-muted font-mono">[${lowBand} – ${highBand}]</td>
-                                </tr>
-                            `;
-                        }
-                        tbody.innerHTML = rowsHtml || '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable.</td></tr>';
-                    }
-                }
-
-                const expEl = document.getElementById('whatifExplanationText');
-                if (expEl && (sim.reason_for_change || sim.explanation)) {
-                    expEl.innerText = sim.reason_for_change || sim.explanation;
-                }
-            } catch (err) {
-                console.error('What-If simulation error:', err);
-                if (badge) badge.innerText = 'Status: Simulation unavailable';
-                const baseCriEl = document.getElementById('sqYr3Val') || document.getElementById('whatifBaselineCri');
-                const projCriEl = document.getElementById('ivYr3Val') || document.getElementById('whatifProjectedCri');
-                const deltaCriEl = document.getElementById('whatifDeltaCri');
-                const outcomeEl = document.getElementById('whatifOutcomeLabel');
-                const statusBadge = document.getElementById('whatIfResultStatus');
-                if (baseCriEl) baseCriEl.innerText = "—";
-                if (projCriEl) projCriEl.innerText = "—";
-                if (deltaCriEl) { deltaCriEl.innerText = "—"; deltaCriEl.style.color = "inherit"; }
-                if (outcomeEl) { outcomeEl.innerText = "SIMULATION UNAVAILABLE"; outcomeEl.style.color = "inherit"; }
-                if (statusBadge) statusBadge.innerText = "Status: Simulation unavailable";
-                const tbody = document.getElementById('whatIfTrajectoryTableBody') || document.getElementById('whatifComparisonTableBody');
-                if (tbody) {
-                    tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable — connection failure.</td></tr>';
-                }
-            }
-        }
-
-        // =========================================================================
         // REAL EXTERNAL INTELLIGENCE REFRESH (Phase 2)
         // =========================================================================
         async function refreshOSINTIntelligence() {
@@ -6744,10 +6369,6 @@
                 <button type="button" onclick="toggleMobileMoreSheet(false)" class="text-xs p-1 font-bold">✕</button>
             </div>
             <div class="grid grid-cols-2 gap-2 text-xs">
-                <button type="button" onclick="navigateWorkflow('whatif'); toggleMobileMoreSheet(false);" class="p-3 cip-subcard text-left rounded-lg font-semibold flex items-center gap-2">
-                    <span>🎛️</span>
-                    <span>What-If</span>
-                </button>
                 <button type="button" onclick="navigateWorkflow('osint'); toggleMobileMoreSheet(false);" class="p-3 cip-subcard text-left rounded-lg font-semibold flex items-center gap-2">
                     <span>🌐</span>
                     <span>External Intel</span>

@@ -302,7 +302,7 @@ class GeminiStatusResponse(BaseModel):
             "Historical baseline computation and insufficiency detection",
             "Multi-dimensional anomaly Z-scores and materiality scoring",
             "Composite Risk Index (CRI) and 5-stage risk progression",
-            "Autoregressive trajectory forecasts and What-If Analysis deltas",
+            "Autoregressive trajectory forecasts",
         ]
     )
     gemini_responsibilities: List[str] = Field(

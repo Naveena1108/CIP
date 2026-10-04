@@ -35,6 +35,18 @@ from src.db.models import (
 )
 
 
+def _get_insert_dialect(session: AsyncSession):
+    try:
+        bind = session.get_bind()
+        if bind and getattr(bind.dialect, "name", "") == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert
+            return insert
+    except Exception:
+        pass
+    from sqlalchemy.dialects.postgresql import insert
+    return insert
+
+
 class OSINTRepository:
     """Persistence and retrieval manager for OSINT intelligence objects."""
 
@@ -52,25 +64,11 @@ class OSINTRepository:
         if eff_inst:
             clauses.append(model_cls.institution_id == eff_inst)
         return or_(*clauses)
-
     @classmethod
     async def upsert_source(cls, session: AsyncSession, source: OSINTSource) -> OSINTSourceModel:
-        existing = await session.get(OSINTSourceModel, source.id)
         license_json = json.dumps(source.license_metadata or {})
-        if existing:
-            existing.name = source.name
-            existing.source_type = source.type
-            existing.url = source.url
-            existing.publisher = source.publisher
-            existing.independence_group = source.independence_group or source.publisher
-            existing.is_official_source = source.is_official_source
-            existing.collection_method = source.collection_method
-            existing.reliability = source.reliability
-            existing.license_metadata_json = license_json
-            await session.flush()
-            return existing
-
-        row = OSINTSourceModel(
+        insert_fn = _get_insert_dialect(session)
+        stmt = insert_fn(OSINTSourceModel).values(
             id=source.id,
             name=source.name,
             source_type=source.type,
@@ -83,9 +81,24 @@ class OSINTRepository:
             license_metadata_json=license_json,
             created_at=source.timestamp,
         )
-        session.add(row)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[OSINTSourceModel.id],
+            set_={
+                "name": stmt.excluded.name,
+                "source_type": stmt.excluded.source_type,
+                "url": stmt.excluded.url,
+                "publisher": stmt.excluded.publisher,
+                "independence_group": stmt.excluded.independence_group,
+                "is_official_source": stmt.excluded.is_official_source,
+                "collection_method": stmt.excluded.collection_method,
+                "reliability": stmt.excluded.reliability,
+                "license_metadata_json": stmt.excluded.license_metadata_json,
+            },
+        )
+        await session.execute(stmt)
         await session.flush()
-        return row
+        res = await session.get(OSINTSourceModel, source.id)
+        return res  # type: ignore
 
     @classmethod
     async def list_sources(cls, session: AsyncSession) -> List[OSINTSource]:
@@ -113,27 +126,10 @@ class OSINTRepository:
 
     @classmethod
     async def upsert_evidence(cls, session: AsyncSession, ev: OSINTEvidence) -> OSINTEvidenceModel:
-        existing = await session.get(OSINTEvidenceModel, ev.id)
         prov_json = ev.provenance.model_dump_json()
         full_json = ev.model_dump_json()
-        if existing:
-            existing.source_id = ev.source_id
-            existing.source_url = ev.source_url
-            existing.content_hash = ev.content_hash
-            existing.extracted_content = ev.extracted_content
-            existing.captured_at = ev.captured_at
-            existing.published_at = ev.published_at
-            existing.extraction_method = ev.extraction_method
-            existing.confidence = ev.confidence
-            existing.title = ev.title
-            existing.author = ev.author
-            existing.language = ev.language
-            existing.provenance_json = prov_json
-            existing.payload_json = full_json
-            await session.flush()
-            return existing
-
-        row = OSINTEvidenceModel(
+        insert_fn = _get_insert_dialect(session)
+        stmt = insert_fn(OSINTEvidenceModel).values(
             id=ev.id,
             source_id=ev.source_id,
             source_url=ev.source_url,
@@ -149,9 +145,28 @@ class OSINTRepository:
             provenance_json=prov_json,
             payload_json=full_json,
         )
-        session.add(row)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[OSINTEvidenceModel.id],
+            set_={
+                "source_id": stmt.excluded.source_id,
+                "source_url": stmt.excluded.source_url,
+                "content_hash": stmt.excluded.content_hash,
+                "extracted_content": stmt.excluded.extracted_content,
+                "captured_at": stmt.excluded.captured_at,
+                "published_at": stmt.excluded.published_at,
+                "extraction_method": stmt.excluded.extraction_method,
+                "confidence": stmt.excluded.confidence,
+                "title": stmt.excluded.title,
+                "author": stmt.excluded.author,
+                "language": stmt.excluded.language,
+                "provenance_json": stmt.excluded.provenance_json,
+                "payload_json": stmt.excluded.payload_json,
+            },
+        )
+        await session.execute(stmt)
         await session.flush()
-        return row
+        res = await session.get(OSINTEvidenceModel, ev.id)
+        return res  # type: ignore
 
     @classmethod
     async def list_evidence(cls, session: AsyncSession, source_id: Optional[str] = None, query: Optional[str] = None) -> List[OSINTEvidence]:
@@ -173,31 +188,13 @@ class OSINTRepository:
 
     @classmethod
     async def upsert_entity(cls, session: AsyncSession, ent: OSINTEntity) -> OSINTEntityModel:
-        existing = await session.get(OSINTEntityModel, ent.id)
         payload_str = ent.model_dump_json()
         country = ent.location.country if ent.location else None
         city = ent.location.city if ent.location else None
         lat = ent.location.latitude if ent.location else None
         lon = ent.location.longitude if ent.location else None
-
-        if existing:
-            existing.name = ent.name
-            existing.entity_type = ent.entity_type
-            existing.stix_id = ent.stix_id
-            existing.confidence = ent.confidence
-            existing.first_seen = ent.first_seen
-            existing.last_seen = ent.last_seen
-            existing.country = country
-            existing.city = city
-            existing.latitude = lat
-            existing.longitude = lon
-            existing.organization_id = ent.organization_id
-            existing.institution_id = ent.institution_id
-            existing.payload_json = payload_str
-            await session.flush()
-            return existing
-
-        row = OSINTEntityModel(
+        insert_fn = _get_insert_dialect(session)
+        stmt = insert_fn(OSINTEntityModel).values(
             id=ent.id,
             name=ent.name,
             entity_type=ent.entity_type,
@@ -213,9 +210,28 @@ class OSINTRepository:
             institution_id=ent.institution_id,
             payload_json=payload_str,
         )
-        session.add(row)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[OSINTEntityModel.id],
+            set_={
+                "name": stmt.excluded.name,
+                "entity_type": stmt.excluded.entity_type,
+                "stix_id": stmt.excluded.stix_id,
+                "confidence": stmt.excluded.confidence,
+                "first_seen": stmt.excluded.first_seen,
+                "last_seen": stmt.excluded.last_seen,
+                "country": stmt.excluded.country,
+                "city": stmt.excluded.city,
+                "latitude": stmt.excluded.latitude,
+                "longitude": stmt.excluded.longitude,
+                "organization_id": stmt.excluded.organization_id,
+                "institution_id": stmt.excluded.institution_id,
+                "payload_json": stmt.excluded.payload_json,
+            },
+        )
+        await session.execute(stmt)
         await session.flush()
-        return row
+        res = await session.get(OSINTEntityModel, ent.id)
+        return res  # type: ignore
 
     @classmethod
     async def list_entities(
@@ -248,37 +264,9 @@ class OSINTRepository:
 
     @classmethod
     async def upsert_event(cls, session: AsyncSession, evt: OSINTEvent) -> OSINTEventModel:
-        existing = await session.get(OSINTEventModel, evt.id)
         payload_str = evt.model_dump_json()
-        if existing:
-            existing.fingerprint = evt.fingerprint
-            existing.title = evt.title
-            existing.description = evt.description
-            existing.event_type = evt.event_type
-            existing.severity = evt.severity
-            existing.signal_stage = evt.signal_stage
-            existing.corroboration_status = evt.corroboration_status
-            existing.duplicate_status = evt.duplicate_status
-            existing.matched_event_id = evt.matched_event_id
-            existing.confidence = evt.confidence
-            existing.source_count = evt.source_count
-            existing.independent_source_count = evt.independent_source_count
-            existing.status = evt.status
-            existing.latitude = evt.location.latitude
-            existing.longitude = evt.location.longitude
-            existing.country = evt.location.country
-            existing.region = evt.location.region
-            existing.city = evt.location.city
-            existing.first_observed = evt.first_observed
-            existing.reported_at = evt.reported_at
-            existing.last_updated = evt.last_updated
-            existing.organization_id = evt.organization_id
-            existing.institution_id = evt.institution_id
-            existing.payload_json = payload_str
-            await session.flush()
-            return existing
-
-        row = OSINTEventModel(
+        insert_fn = _get_insert_dialect(session)
+        stmt = insert_fn(OSINTEventModel).values(
             id=evt.id,
             fingerprint=evt.fingerprint,
             title=evt.title,
@@ -305,9 +293,39 @@ class OSINTRepository:
             institution_id=evt.institution_id,
             payload_json=payload_str,
         )
-        session.add(row)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[OSINTEventModel.id],
+            set_={
+                "fingerprint": stmt.excluded.fingerprint,
+                "title": stmt.excluded.title,
+                "description": stmt.excluded.description,
+                "event_type": stmt.excluded.event_type,
+                "severity": stmt.excluded.severity,
+                "signal_stage": stmt.excluded.signal_stage,
+                "corroboration_status": stmt.excluded.corroboration_status,
+                "duplicate_status": stmt.excluded.duplicate_status,
+                "matched_event_id": stmt.excluded.matched_event_id,
+                "confidence": stmt.excluded.confidence,
+                "source_count": stmt.excluded.source_count,
+                "independent_source_count": stmt.excluded.independent_source_count,
+                "status": stmt.excluded.status,
+                "latitude": stmt.excluded.latitude,
+                "longitude": stmt.excluded.longitude,
+                "country": stmt.excluded.country,
+                "region": stmt.excluded.region,
+                "city": stmt.excluded.city,
+                "first_observed": stmt.excluded.first_observed,
+                "reported_at": stmt.excluded.reported_at,
+                "last_updated": stmt.excluded.last_updated,
+                "organization_id": stmt.excluded.organization_id,
+                "institution_id": stmt.excluded.institution_id,
+                "payload_json": stmt.excluded.payload_json,
+            },
+        )
+        await session.execute(stmt)
         await session.flush()
-        return row
+        res = await session.get(OSINTEventModel, evt.id)
+        return res  # type: ignore
 
     @classmethod
     async def list_events(
@@ -345,20 +363,9 @@ class OSINTRepository:
 
     @classmethod
     async def upsert_relationship(cls, session: AsyncSession, rel: OSINTRelationship) -> OSINTRelationshipModel:
-        existing = await session.get(OSINTRelationshipModel, rel.id)
         payload_str = rel.model_dump_json()
-        if existing:
-            existing.source_entity = rel.source_entity
-            existing.relationship_type = rel.relationship_type
-            existing.target_entity = rel.target_entity
-            existing.confidence = rel.confidence
-            existing.evidence_ids_json = json.dumps(rel.evidence)
-            existing.timestamp = rel.timestamp
-            existing.payload_json = payload_str
-            await session.flush()
-            return existing
-
-        row = OSINTRelationshipModel(
+        insert_fn = _get_insert_dialect(session)
+        stmt = insert_fn(OSINTRelationshipModel).values(
             id=rel.id,
             source_entity=rel.source_entity,
             relationship_type=rel.relationship_type,
@@ -368,9 +375,22 @@ class OSINTRepository:
             timestamp=rel.timestamp,
             payload_json=payload_str,
         )
-        session.add(row)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[OSINTRelationshipModel.id],
+            set_={
+                "source_entity": stmt.excluded.source_entity,
+                "relationship_type": stmt.excluded.relationship_type,
+                "target_entity": stmt.excluded.target_entity,
+                "confidence": stmt.excluded.confidence,
+                "evidence_ids_json": stmt.excluded.evidence_ids_json,
+                "timestamp": stmt.excluded.timestamp,
+                "payload_json": stmt.excluded.payload_json,
+            },
+        )
+        await session.execute(stmt)
         await session.flush()
-        return row
+        res = await session.get(OSINTRelationshipModel, rel.id)
+        return res  # type: ignore
 
     @classmethod
     async def list_relationships(cls, session: AsyncSession, entity_id: Optional[str] = None) -> List[OSINTRelationship]:
@@ -388,24 +408,9 @@ class OSINTRepository:
 
     @classmethod
     async def upsert_conflict(cls, session: AsyncSession, conflict: SourceConflictRecord) -> OSINTSourceConflictModel:
-        existing = await session.get(OSINTSourceConflictModel, conflict.conflict_id)
         payload_str = conflict.model_dump_json()
-        if existing:
-            existing.event_id = conflict.event_id
-            existing.topic_or_field = conflict.topic_or_field
-            existing.source_a_id = conflict.source_a_id
-            existing.source_a_claim = conflict.source_a_claim
-            existing.source_b_id = conflict.source_b_id
-            existing.source_b_claim = conflict.source_b_claim
-            existing.disagreement = conflict.disagreement
-            existing.confidence = conflict.confidence
-            existing.resolution_status = conflict.resolution_status
-            existing.detected_at = conflict.detected_at
-            existing.payload_json = payload_str
-            await session.flush()
-            return existing
-
-        row = OSINTSourceConflictModel(
+        insert_fn = _get_insert_dialect(session)
+        stmt = insert_fn(OSINTSourceConflictModel).values(
             id=conflict.conflict_id,
             event_id=conflict.event_id,
             topic_or_field=conflict.topic_or_field,
@@ -419,9 +424,26 @@ class OSINTRepository:
             detected_at=conflict.detected_at,
             payload_json=payload_str,
         )
-        session.add(row)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[OSINTSourceConflictModel.id],
+            set_={
+                "event_id": stmt.excluded.event_id,
+                "topic_or_field": stmt.excluded.topic_or_field,
+                "source_a_id": stmt.excluded.source_a_id,
+                "source_a_claim": stmt.excluded.source_a_claim,
+                "source_b_id": stmt.excluded.source_b_id,
+                "source_b_claim": stmt.excluded.source_b_claim,
+                "disagreement": stmt.excluded.disagreement,
+                "confidence": stmt.excluded.confidence,
+                "resolution_status": stmt.excluded.resolution_status,
+                "detected_at": stmt.excluded.detected_at,
+                "payload_json": stmt.excluded.payload_json,
+            },
+        )
+        await session.execute(stmt)
         await session.flush()
-        return row
+        res = await session.get(OSINTSourceConflictModel, conflict.conflict_id)
+        return res  # type: ignore
 
     @classmethod
     async def list_conflicts(cls, session: AsyncSession, event_id: Optional[str] = None) -> List[SourceConflictRecord]:

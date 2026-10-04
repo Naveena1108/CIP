@@ -1,10 +1,9 @@
 """
-CIP Phase 4 Engine: Explainable Forecasting, What-If Analysis, and Institutional Memory.
+CIP Phase 4 Engine: Explainable Forecasting and Institutional Memory.
 
 Strictly deterministic mathematical implementation:
 - Never fabricates a forecast when historical evidence is insufficient (< 2 periods).
 - Never allows an LLM to invent forecast values, methodology, or change attributions.
-- Every What-If control maps 1-to-1 to a real mathematical model input in TrajectoryPredictor.
 - Persists and organizes 7 distinct institutional memory categories:
   observed_fact, analysis, inference, prediction, outcome, user_feedback, unknown.
 - Implements longitudinal learning loop:
@@ -33,11 +32,6 @@ from src.contracts import (
     ChangedForecastInput,
     ForecastChangeExplanation,
     ExplainableForecast,
-    WhatIfControlMapping,
-    WhatIfBaselineSummary,
-    WhatIfInterventionSpec,
-    WhatIfRiskDelta,
-    WhatIfAnalysisResponse,
     InstitutionalMemoryEntry,
     PredictionOutcomeComparison,
     UserFeedbackRecord,
@@ -49,33 +43,9 @@ from src.engine.features import extract_institutional_features
 from src.engine.predictor import TrajectoryPredictor
 
 
-SUPPORTED_WHAT_IF_CONTROLS: Dict[str, Tuple[str, float, str]] = {
-    "vacancy_rate_reduction": (
-        "vacancy_rate_slope",
-        -1.0,
-        "Directly subtracts from vacancy_rate_slope (weight +0.40 in composite momentum).",
-    ),
-    "placement_boost": (
-        "placement_pct_slope",
-        1.0,
-        "Directly adds to placement_pct_slope (weight -0.35 in composite momentum; higher placement reduces CRI).",
-    ),
-    "closing_rank_stabilization": (
-        "closing_rank_slope",
-        -1.0,
-        "Directly subtracts from closing_rank_slope (weight +0.25 in composite momentum).",
-    ),
-    "dynamic_risk_reduction": (
-        "dynamic_risk_slope",
-        -1.0,
-        "Directly subtracts from dynamic_risk_slope (weight +0.30 in composite momentum).",
-    ),
-}
-
-
 class ExplainableForecastingAndMemoryEngine:
     """
-    Deterministic engine for CIP Phase 4 Explainable Forecasting, What-If Analysis,
+    Deterministic engine for CIP Phase 4 Explainable Forecasting,
     Longitudinal Outcome Comparison, and Institutional Memory assembly.
     """
 
@@ -562,147 +532,6 @@ class ExplainableForecastingAndMemoryEngine:
             deterministic_attribution=" | ".join(attribution_parts) if attribution_parts else "No input deltas.",
         )
 
-    def run_what_if_analysis(
-        self,
-        institution_id: str,
-        current_cri: float,
-        feature_slopes: Dict[str, float],
-        intervention_effects: Dict[str, float],
-        years_forward: int = 3,
-        latest_year: Optional[int] = None,
-    ) -> WhatIfAnalysisResponse:
-        """
-        Execute deterministic What-If Analysis (replacing 'Forward Trajectory Simulator').
-        Every user control must correspond to a real mathematical model input in TrajectoryPredictor.
-        """
-        unknown_controls = [k for k in intervention_effects.keys() if k not in SUPPORTED_WHAT_IF_CONTROLS]
-        if unknown_controls:
-            raise ValueError(
-                f"Unsupported or decorative What-If control(s) rejected: {unknown_controls}. "
-                f"Supported model controls are: {list(SUPPORTED_WHAT_IF_CONTROLS.keys())}."
-            )
-
-        sq_raw = self.predictor.predict_trajectory(
-            current_cri=current_cri,
-            feature_slopes=feature_slopes,
-            years_forward=years_forward,
-        )
-        iv_raw = self.predictor.simulate_intervention(
-            current_cri=current_cri,
-            feature_slopes=feature_slopes,
-            intervention_effects=intervention_effects,
-            years_forward=years_forward,
-        )
-
-        sq_points = [
-            ForecastTrajectoryPoint(
-                year_offset=pt.year_offset,
-                target_period=(latest_year + pt.year_offset) if latest_year else None,
-                projected_cri=round(pt.projected_cri, 4),
-                confidence_band_low=round(pt.confidence_band_low, 4),
-                confidence_band_high=round(pt.confidence_band_high, 4),
-                scenario=pt.scenario,
-            )
-            for pt in sq_raw
-        ]
-        iv_points = [
-            ForecastTrajectoryPoint(
-                year_offset=pt.year_offset,
-                target_period=(latest_year + pt.year_offset) if latest_year else None,
-                projected_cri=round(pt.projected_cri, 4),
-                confidence_band_low=round(pt.confidence_band_low, 4),
-                confidence_band_high=round(pt.confidence_band_high, 4),
-                scenario=pt.scenario,
-            )
-            for pt in iv_raw
-        ]
-
-        modified_slopes = dict(feature_slopes)
-        mappings: List[WhatIfControlMapping] = []
-        reason_parts: List[str] = []
-
-        for ctrl_key, ctrl_val in intervention_effects.items():
-            target_slope, sign_mult, desc = SUPPORTED_WHAT_IF_CONTROLS[ctrl_key]
-            orig_val = float(modified_slopes.get(target_slope, 0.0))
-            new_val = round(orig_val + sign_mult * float(ctrl_val), 6)
-            modified_slopes[target_slope] = new_val
-            weight = self.predictor._SLOPE_WEIGHTS.get(target_slope, 0.0)
-            annual_cri_effect = round(self.predictor.momentum_factor * weight * (new_val - orig_val), 5)
-
-            mappings.append(
-                WhatIfControlMapping(
-                    control_key=ctrl_key,
-                    control_value=float(ctrl_val),
-                    target_model_input=target_slope,
-                    original_input_value=round(orig_val, 6),
-                    modified_input_value=new_val,
-                    mathematical_effect=(
-                        f"{desc} Shifts '{target_slope}' from {orig_val:+.4f} to {new_val:+.4f}, "
-                        f"changing annual CRI momentum by {annual_cri_effect:+.5f}/year."
-                    ),
-                )
-            )
-            reason_parts.append(
-                f"{ctrl_key}={ctrl_val:+.3f} adjusted model input '{target_slope}' from {orig_val:+.4f} to {new_val:+.4f} "
-                f"(annual CRI impact {annual_cri_effect:+.4f}/yr)"
-            )
-
-        y1_delta = round(iv_points[0].projected_cri - sq_points[0].projected_cri, 4) if sq_points and iv_points else 0.0
-        term_delta = round(iv_points[-1].projected_cri - sq_points[-1].projected_cri, 4) if sq_points and iv_points else 0.0
-        risk_reduction = round(sq_points[-1].projected_cri - iv_points[-1].projected_cri, 4) if sq_points and iv_points else 0.0
-
-        if risk_reduction > 0.0001:
-            direction = "RISK_REDUCED"
-        elif risk_reduction < -0.0001:
-            direction = "RISK_INCREASED"
-        else:
-            direction = "NO_CHANGE"
-
-        if reason_parts:
-            reason_for_change = (
-                f"Applying intervention controls ({'; '.join(reason_parts)}) modified the composite trajectory "
-                f"slope from {self.predictor._compute_slope_composite(feature_slopes):+.4f} to "
-                f"{self.predictor._compute_slope_composite(modified_slopes):+.4f}, shifting Year +{years_forward} "
-                f"projected CRI from {sq_points[-1].projected_cri:.4f} (baseline) to {iv_points[-1].projected_cri:.4f} "
-                f"(net risk reduction: {risk_reduction:+.4f})."
-            )
-        else:
-            reason_for_change = "No intervention controls were modified; projected trajectory equals baseline."
-
-        baseline_summary = WhatIfBaselineSummary(
-            current_cri=round(current_cri, 4),
-            feature_slopes=feature_slopes,
-            baseline_trajectory=sq_points,
-            terminal_projected_cri=sq_points[-1].projected_cri if sq_points else round(current_cri, 4),
-            method_used="Deterministic First-Order Autoregressive Momentum Model (STATUS_QUO)",
-        )
-        intervention_spec = WhatIfInterventionSpec(
-            applied_controls=intervention_effects,
-            modified_slopes=modified_slopes,
-            control_mappings=mappings,
-        )
-        risk_delta = WhatIfRiskDelta(
-            year_1_cri_delta=y1_delta,
-            terminal_cri_delta=term_delta,
-            risk_reduction_achieved=risk_reduction,
-            direction=direction,
-        )
-
-        return WhatIfAnalysisResponse(
-            institution_id=institution_id,
-            analysis_type="What-If Analysis",
-            status=ForecastStatus.SUFFICIENT_EVIDENCE,
-            baseline=baseline_summary,
-            intervention=intervention_spec,
-            projected_trajectory=iv_points,
-            estimated_risk_change=risk_delta,
-            reason_for_change=reason_for_change,
-            current_cri=round(current_cri, 4),
-            status_quo_trajectory=sq_points,
-            intervention_trajectory=iv_points,
-            risk_reduction_achieved=risk_reduction,
-        )
-
     def compare_prediction_with_outcome(
         self,
         institution_id: str,
@@ -1066,8 +895,6 @@ class ExplainableForecastingAndMemoryEngine:
                 }
             )
         for ana_entry in entries_by_cat.get(MemoryCategory.ANALYSIS.value, []):
-            if ana_entry.payload.get("analysis_type") == "What-If Analysis":
-                continue
             previous_analyses.append(
                 {
                     "memory_id": ana_entry.memory_id,
@@ -1090,11 +917,10 @@ class ExplainableForecastingAndMemoryEngine:
             for e in entries_by_cat.get(MemoryCategory.PREDICTION.value, [])
         ]
 
-        # 5. interventions (stored in analysis category with analysis_type == 'What-If Analysis')
+        # 5. interventions
         interventions = [
             e.payload
-            for e in entries_by_cat.get(MemoryCategory.ANALYSIS.value, [])
-            if e.payload.get("analysis_type") == "What-If Analysis"
+            for e in entries_by_cat.get(MemoryCategory.INTERVENTION.value, [])
         ]
 
         # 6. outcomes

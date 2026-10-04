@@ -6,9 +6,12 @@ Session Logout, and Post-Authentication Entity Onboarding.
 
 import hashlib
 import json
+import logging
 import os
 import secrets
 import uuid
+
+logger = logging.getLogger("ai_criss.auth")
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Literal, Optional, Union
 from urllib.parse import urlencode, quote

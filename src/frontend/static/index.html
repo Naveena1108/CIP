@@ -3882,9 +3882,13 @@
             const email = (tokenPayload && tokenPayload.email) || fallbackEmail || 'authenticated_user';
             const role = (tokenPayload && tokenPayload.role) || 'Auditor';
             currentUserRole = role;
-            const savedOnboardingDone = localStorage.getItem('aicriss_onboarding_completed') === 'true' || sessionStorage.getItem('aicriss_onboarding_completed') === 'true';
-            const isCompleted = Boolean(tokenPayload && (tokenPayload.onboarding_completed === true || tokenPayload.onboarding_required === false)) || savedOnboardingDone;
-            const onboardingReq = !isCompleted && Boolean(tokenPayload && tokenPayload.onboarding_required);
+            const serverCompleted = tokenPayload && typeof tokenPayload.onboarding_completed === 'boolean'
+                ? tokenPayload.onboarding_completed
+                : null;
+            const isCompleted = serverCompleted !== null
+                ? serverCompleted
+                : (localStorage.getItem(`aicriss_onboarding_completed_${email}`) === 'true');
+            const onboardingReq = !isCompleted && Boolean(tokenPayload && (tokenPayload.onboarding_required !== false));
             const primaryInst = (tokenPayload && tokenPayload.primary_institution_id) || '';
 
             [localStorage, sessionStorage].forEach(store => {
@@ -3894,15 +3898,23 @@
                     store.setItem('aicriss_role', role);
                     store.setItem('aicriss_onboarding_required', onboardingReq ? 'true' : 'false');
                     if (isCompleted) {
+                        store.setItem(`aicriss_onboarding_completed_${email}`, 'true');
                         store.setItem('aicriss_onboarding_completed', 'true');
+                    } else {
+                        store.removeItem(`aicriss_onboarding_completed_${email}`);
+                        store.removeItem('aicriss_onboarding_completed');
                     }
                     if (primaryInst) {
                         store.setItem('aicriss_primary_inst', primaryInst);
+                        store.setItem('cip_selected_institution', primaryInst);
                     }
                 } catch (e) {}
             });
             if (primaryInst) {
                 currentInstitutionId = primaryInst;
+            } else {
+                const storedInst = localStorage.getItem('cip_selected_institution') || sessionStorage.getItem('cip_selected_institution');
+                if (storedInst) currentInstitutionId = storedInst;
             }
 
             document.getElementById('roleBadge').innerText = `${email}`;
@@ -4060,6 +4072,12 @@
 
                 if (payload.institution_id) {
                     currentInstitutionId = payload.institution_id;
+                    try {
+                        localStorage.setItem('cip_selected_institution', currentInstitutionId);
+                        sessionStorage.setItem('cip_selected_institution', currentInstitutionId);
+                        localStorage.setItem('aicriss_primary_inst', currentInstitutionId);
+                        sessionStorage.setItem('aicriss_primary_inst', currentInstitutionId);
+                    } catch (e) {}
                 }
                 setBanner(
                     `Ingested '${file.name}' [${payload.detected_format}] -> Entity: ${currentInstitutionId} ` +

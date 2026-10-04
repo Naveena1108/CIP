@@ -95,7 +95,12 @@ async def log_requests(request: Request, call_next):
 # Global Exception Handler for Unhandled Errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    client_ip = request.client.host if request.client else "unknown"
+    logger.error(
+        f"[UNHANDLED_EXCEPTION] method={request.method} path={request.url.path} "
+        f"client_ip={client_ip} exception_type={type(exc).__name__} error={str(exc)}",
+        exc_info=True,
+    )
     return JSONResponse(
         status_code=500,
         content={"error": "Internal Server Error", "detail": "An unexpected error occurred. Request logged."}

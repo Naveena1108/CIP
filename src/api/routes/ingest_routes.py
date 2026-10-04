@@ -169,7 +169,7 @@ async def _handle_universal_upload(
                 institution_id=final_inst_id,
                 name=final_inst_id,
                 organization_id=target_org_id,
-                owner_user_id=current_user.id if current_user.onboarding_completed else None,
+                owner_user_id=current_user.id,
             )
         result.institution_id = final_inst_id
     if target_org_id:
@@ -226,7 +226,9 @@ async def _handle_universal_upload(
         for sig in all_canonical:
             sig.institution_id = final_inst_id
             if hasattr(sig, "provenance") and sig.provenance:
-                sig.provenance.source_id = result.ingestion_id
+                sig.provenance = sig.provenance.model_copy(update={"source_id": result.ingestion_id})
+            elif hasattr(sig, "provenance"):
+                sig.provenance = ProvenanceMetadata(source_id=result.ingestion_id, source_type="institutional_export")
         await SignalSnapshotRepository.save_signals(session, all_canonical)
 
     # Persist all dynamically discovered signals (never overwriting contradictory values)
@@ -257,6 +259,9 @@ async def _handle_universal_upload(
     if final_inst_id:
         await InstitutionRepository.set_active_dataset(session, final_inst_id, result.ingestion_id)
         AnalysisPersistenceService.invalidate_institution(final_inst_id)
+        if not current_user.primary_institution_id:
+            current_user.primary_institution_id = final_inst_id
+            await session.flush()
 
     if result.status == "UNSUPPORTED_FORMAT":
         return JSONResponse(

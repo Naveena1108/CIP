@@ -1183,11 +1183,14 @@ class DiscoveredSignalRepository:
                         str(s.metric_name or "").strip().lower(),
                         str(s.context.academic_year or s.context.time_period or "").strip().lower(),
                         str(s.context.department or "").strip().lower(),
-                        str(s.provenance.spreadsheet_location or s.provenance.page_or_section or "").strip().lower(),
+                        str((s.provenance.spreadsheet_location if s.provenance else "") or (s.provenance.page_or_section if s.provenance else "") or "").strip().lower(),
                         str(s.raw_value or "").strip().lower(),
                     ]
                     fp_val = hashlib.sha256(":".join(parts).encode("utf-8")).hexdigest()[:24]
-                    s.fingerprint = fp_val
+                    try:
+                        s.fingerprint = fp_val
+                    except Exception:
+                        pass
                 all_fps.append(fp_val)
 
             for i in range(0, len(all_fps), 500):
@@ -1230,12 +1233,12 @@ class DiscoveredSignalRepository:
                 is_contradictory=s.is_contradictory,
                 contradiction_group_id=s.contradiction_group_id,
                 is_duplicate=s.is_duplicate,
-                source_document=s.provenance.document,
-                format_type=s.provenance.format_type,
-                page_or_section=s.provenance.page_or_section,
-                spreadsheet_location=s.provenance.spreadsheet_location,
-                excerpt_or_reference=s.provenance.excerpt_or_reference,
-                extraction_confidence=s.provenance.extraction_confidence,
+                source_document=s.provenance.document if s.provenance else "UNKNOWN",
+                format_type=s.provenance.format_type if s.provenance else "UNKNOWN",
+                page_or_section=s.provenance.page_or_section if s.provenance else None,
+                spreadsheet_location=s.provenance.spreadsheet_location if s.provenance else None,
+                excerpt_or_reference=s.provenance.excerpt_or_reference if s.provenance else None,
+                extraction_confidence=s.provenance.extraction_confidence if s.provenance else 1.0,
                 payload_json=s.model_dump_json(),
                 fingerprint=fp,
             )

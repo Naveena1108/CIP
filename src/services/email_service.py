@@ -86,20 +86,39 @@ def render_otp_html(recipient_email: str, otp_code: str, purpose: str = "login")
 </html>"""
 
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+class EmailDeliveryResult:
+    """Result container that evaluates as boolean and exposes error details."""
+    def __init__(self, success: bool, error: Optional[str] = None, provider: Optional[str] = None):
+        self.success = success
+        self.error = error
+        self.provider = provider
+
+    def __bool__(self) -> bool:
+        return self.success
+
+    def __repr__(self) -> str:
+        return f"<EmailDeliveryResult success={self.success} provider={self.provider} error={self.error}>"
 
 
 def send_otp_email(
     recipient_email: str,
     otp_code: str,
     purpose: str = "login",
-) -> bool:
+) -> EmailDeliveryResult:
     """
     Deliver single-use verification code to the recipient's email address.
     Uses SMTP or Resend API when configured via environment variables.
     Strictly adheres to CIP security policies: never logs plaintext OTPs.
-    Returns True if delivery succeeded, False if delivery failed.
+    Returns EmailDeliveryResult (evaluates as True if succeeded, False if failed).
     """
+    smtp_host = os.getenv("SMTP_HOST", "").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    smtp_from = os.getenv("SMTP_FROM", "CIP Intelligence <no-reply@cip.edu>").strip()
+    smtp_tls = os.getenv("SMTP_TLS", "true").lower() in ("true", "1", "yes")
+    resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
+
     subject = f"Your CIP Verification Code"
     plain_text = (
         f"Your CIP verification code is: {otp_code}\n\n"
@@ -110,11 +129,11 @@ def send_otp_email(
     html_content = render_otp_html(recipient_email, otp_code, purpose)
 
     # 1. Attempt SMTP delivery if configured
-    if SMTP_HOST:
+    if smtp_host:
         try:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = f"Your CIP Verification Code: {otp_code}"
-            msg["From"] = SMTP_FROM
+            msg["From"] = smtp_from
             msg["To"] = recipient_email
 
             part1 = MIMEText(plain_text, "plain", "utf-8")
@@ -122,27 +141,28 @@ def send_otp_email(
             msg.attach(part1)
             msg.attach(part2)
 
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-                if SMTP_TLS:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                if smtp_tls:
                     server.starttls()
-                if SMTP_USER and SMTP_PASSWORD:
-                    server.login(SMTP_USER, SMTP_PASSWORD)
+                if smtp_user and smtp_password:
+                    server.login(smtp_user, smtp_password)
                 server.send_message(msg)
 
-            logger.info(f"Successfully dispatched OTP email via SMTP to {recipient_email} (purpose: {purpose}).")
-            return True
+            logger.info(f"Successfully dispatched OTP email via SMTP ({smtp_host}:{smtp_port}) to {recipient_email} (purpose: {purpose}).")
+            return EmailDeliveryResult(True, provider="SMTP")
         except Exception as exc:
-            logger.error(f"Failed to dispatch OTP email via SMTP ({SMTP_HOST}:{SMTP_PORT}) for {recipient_email}: {exc}.")
-            return False
+            err_msg = f"SMTP error ({smtp_host}:{smtp_port}): {type(exc).__name__} - {exc}"
+            logger.error(f"Failed to dispatch OTP email via SMTP for {recipient_email}: {err_msg}")
+            return EmailDeliveryResult(False, error=err_msg, provider="SMTP")
 
     # 2. Attempt Resend API if configured
-    if RESEND_API_KEY:
+    if resend_api_key:
         try:
             import httpx
-            from_addr = SMTP_FROM if ("@" in SMTP_FROM and "no-reply@cip.edu" not in SMTP_FROM) else "CIP Verification <onboarding@resend.dev>"
+            from_addr = smtp_from if ("@" in smtp_from and "no-reply@cip.edu" not in smtp_from) else "CIP Verification <onboarding@resend.dev>"
             resp = httpx.post(
                 "https://api.resend.com/emails",
-                headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {resend_api_key}", "Content-Type": "application/json"},
                 json={
                     "from": from_addr,
                     "to": [recipient_email],
@@ -154,20 +174,26 @@ def send_otp_email(
             )
             if resp.status_code in (200, 201):
                 logger.info(f"Successfully dispatched OTP email via Resend API to {recipient_email} (purpose: {purpose}).")
-                return True
+                return EmailDeliveryResult(True, provider="RESEND")
             else:
-                logger.error(f"Resend API email dispatch returned HTTP {resp.status_code}: {resp.text}")
-                return False
+                err_msg = f"Resend API returned HTTP {resp.status_code}: {resp.text}"
+                logger.error(f"Resend API email dispatch failed for {recipient_email}: {err_msg}")
+                return EmailDeliveryResult(False, error=err_msg, provider="RESEND")
         except Exception as exc:
-            logger.error(f"Resend API email dispatch failed for {recipient_email}: {exc}")
-            return False
+            err_msg = f"Resend API exception: {type(exc).__name__} - {exc}"
+            logger.error(f"Resend API email dispatch failed for {recipient_email}: {err_msg}")
+            return EmailDeliveryResult(False, error=err_msg, provider="RESEND")
 
-    # 3. Development / Local environment without configured SMTP
+    # 3. No email provider configured
     is_prod = is_deployed_environment()
     if is_prod:
-        logger.error(f"Cannot dispatch verification email to {recipient_email}: no SMTP or email provider configured in production environment.")
-        return False
+        err_msg = (
+            "No email provider configured in production environment. "
+            "Required: either RESEND_API_KEY or (SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM)."
+        )
+        logger.error(f"Cannot dispatch verification email to {recipient_email}: {err_msg}")
+        return EmailDeliveryResult(False, error=err_msg, provider="NONE")
 
-    # In local development: log successful dispatch notification without leaking the raw secret code
-    logger.info(f"[CIP SECURITY] Verification code dispatched for {recipient_email} (purpose: {purpose.upper()}, expires in 5m).")
-    return True
+    # In local development without credentials: simulate delivery safely without logging raw code
+    logger.info(f"[CIP DEV SIMULATION] Verification code dispatched for {recipient_email} (purpose: {purpose.upper()}, expires in 5m).")
+    return EmailDeliveryResult(True, provider="DEV_SIMULATION")

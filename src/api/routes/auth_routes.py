@@ -708,6 +708,12 @@ async def login_json(
     )
     sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="login")
     if not sent and (is_deployed_environment() or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+        err_msg = getattr(sent, "error", None) or "Email delivery failed"
+        logger.error(
+            f"[AUTH_LOGIN_OTP_EMAIL_FAILED] endpoint=/api/v1/auth/login/json user={req.email} "
+            f"operation=OTP_EMAIL_DELIVERY purpose=login provider={getattr(sent, 'provider', 'UNKNOWN')} "
+            f"error={err_msg}"
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
@@ -802,6 +808,12 @@ async def signup(
     )
     sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="signup")
     if not sent and (is_deployed_environment() or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+        err_msg = getattr(sent, "error", None) or "Email delivery failed"
+        logger.error(
+            f"[AUTH_SIGNUP_OTP_EMAIL_FAILED] endpoint=/api/v1/auth/signup user={req.email} "
+            f"operation=OTP_EMAIL_DELIVERY purpose=signup provider={getattr(sent, 'provider', 'UNKNOWN')} "
+            f"error={err_msg}"
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."

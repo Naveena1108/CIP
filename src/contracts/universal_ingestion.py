@@ -95,6 +95,7 @@ class DiscoveredSignal(BaseModel):
     is_duplicate: bool = Field(default=False, description="True if an identical observation was already recorded")
     context: InstitutionalContextAssociation
     provenance: SignalProvenance
+    fingerprint: Optional[str] = Field(default=None, description="Deterministic deduplication fingerprint")
     ingested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

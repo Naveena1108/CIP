@@ -225,6 +225,8 @@ async def _handle_universal_upload(
     if all_canonical and final_inst_id:
         for sig in all_canonical:
             sig.institution_id = final_inst_id
+            if hasattr(sig, "provenance") and sig.provenance:
+                sig.provenance.source_id = result.ingestion_id
         await SignalSnapshotRepository.save_signals(session, all_canonical)
 
     # Persist all dynamically discovered signals (never overwriting contradictory values)
@@ -253,6 +255,7 @@ async def _handle_universal_upload(
     )
 
     if final_inst_id:
+        await InstitutionRepository.set_active_dataset(session, final_inst_id, result.ingestion_id)
         AnalysisPersistenceService.invalidate_institution(final_inst_id)
 
     if result.status == "UNSUPPORTED_FORMAT":
@@ -566,13 +569,14 @@ async def list_institution_datasets(
     session: AsyncSession = Depends(get_db_session),
     current_user: UserModel = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
-    """List available uploaded datasets for an institution (Part 19: Dataset Management)."""
+    """List available uploaded datasets for an institution (Section 7: Dataset Management)."""
     inst = await InstitutionRepository.get_by_id(session, institution_id)
     if inst and not InstitutionRepository.user_can_access(inst, current_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied: institution '{institution_id}' belongs to another user or organization.",
         )
+    active_dataset_id = await InstitutionRepository.get_active_dataset(session, institution_id)
     records = await IngestionRecordRepository.list_by_institution(session, institution_id)
     datasets = []
     for idx, r in enumerate(records):
@@ -582,6 +586,7 @@ async def list_institution_datasets(
         if not doms and hasattr(r, "detected_domains") and r.detected_domains:
             doms = list(r.detected_domains.keys())
         st = getattr(r, "status", None) or getattr(r, "processing_status", None) or "SUCCESS"
+        is_active = (r.ingestion_id == active_dataset_id) if active_dataset_id else (idx == 0)
         datasets.append({
             "ingestion_id": r.ingestion_id,
             "filename": r.filename,
@@ -589,7 +594,7 @@ async def list_institution_datasets(
             "total_signals_discovered": sigs,
             "domains": doms or [],
             "status": st,
-            "is_active": (idx == 0),  # Most recent is active by default
+            "is_active": is_active,
         })
     return datasets
 
@@ -601,7 +606,7 @@ async def select_institution_dataset(
     session: AsyncSession = Depends(get_db_session),
     current_user: UserModel = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """Select active dataset for analysis (Part 19: Dataset Management)."""
+    """Select and persist active dataset for analysis (Section 7: Active Dataset State)."""
     inst = await InstitutionRepository.get_by_id(session, institution_id)
     if inst and not InstitutionRepository.user_can_access(inst, current_user):
         raise HTTPException(
@@ -614,6 +619,10 @@ async def select_institution_dataset(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Dataset with ID '{ingestion_id}' not found.",
         )
+    # Persist the active dataset selection in the database
+    await InstitutionRepository.set_active_dataset(session, institution_id, ingestion_id)
+    await session.commit()
+    AnalysisPersistenceService.invalidate_institution(institution_id)
     return {
         "status": "SELECTED",
         "institution_id": institution_id,
@@ -630,8 +639,8 @@ async def delete_institution_dataset(
     current_user: UserModel = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
-    Safely delete an uploaded dataset and cascade-delete its discovered signals
-    without leaving orphaned records (Part 19 & 20: Dataset Management & Isolation).
+    Safely delete an uploaded dataset and cascade-delete its exclusive discovered signals
+    and snapshots without leaving orphaned records (Section 8: Fix Dataset Deletion Completely).
     """
     inst = await InstitutionRepository.get_by_id(session, institution_id)
     if inst and not InstitutionRepository.user_can_access(inst, current_user):
@@ -646,10 +655,18 @@ async def delete_institution_dataset(
             detail=f"Dataset with ID '{ingestion_id}' not found.",
         )
     filename = rec.filename
-    # Cascading deletion of signals
+    # Cascading deletion of signals and snapshots
     deleted_signals = await DiscoveredSignalRepository.delete_by_ingestion_id(session, ingestion_id)
+    deleted_snapshots = await SignalSnapshotRepository.delete_by_provenance_id(session, ingestion_id)
     # Deletion of ingestion record
     await IngestionRecordRepository.delete_by_id(session, ingestion_id)
+
+    # If the active dataset was deleted, update active_dataset_id to next available dataset or None
+    active_id = await InstitutionRepository.get_active_dataset(session, institution_id)
+    if active_id == ingestion_id:
+        remaining_records = await IngestionRecordRepository.list_by_institution(session, institution_id)
+        next_active = remaining_records[0].ingestion_id if remaining_records else None
+        await InstitutionRepository.set_active_dataset(session, institution_id, next_active)
 
     # Invalidate cached analysis for this institution
     AnalysisPersistenceService.invalidate_institution(institution_id)
@@ -668,6 +685,7 @@ async def delete_institution_dataset(
         "ingestion_id": ingestion_id,
         "filename": filename,
         "deleted_signals_count": deleted_signals,
+        "deleted_snapshots_count": deleted_snapshots,
     }
 
 

@@ -5,64 +5,73 @@ and PostgreSQL via asyncpg if configured via DATABASE_URL.
 """
 
 import os
+import logging
 from typing import AsyncGenerator
+from fastapi import HTTPException, status
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from src.db.models import Base
+from src.runtime_env import is_deployed_environment
 
-_default_sqlite_url = (
-    "sqlite+aiosqlite:////tmp/ai_criss.db"
-    if os.getenv("VERCEL")
-    else "sqlite+aiosqlite:///./ai_criss.db"
-)
-DATABASE_URL = os.getenv("DATABASE_URL", _default_sqlite_url).strip()
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+logger = logging.getLogger("ai_criss.db")
+
+_is_deployed = is_deployed_environment()
+_raw_db_url = os.getenv("DATABASE_URL", "").strip()
+
+# Production Persistence Requirement (Section 5):
+# Deployed environments (Vercel/production/staging) MUST NOT silently fall back to ephemeral /tmp SQLite.
+# They require durable shared persistence (PostgreSQL / Supabase).
+if _is_deployed and (not _raw_db_url or "sqlite" in _raw_db_url.lower()):
+    DATABASE_URL = None
+    _production_db_error = (
+        "CRITICAL PERSISTENCE DEFECT: DATABASE_URL is not configured in deployed production environment. "
+        "Ephemeral /tmp SQLite fallback is forbidden to prevent data loss. "
+        "Please configure DATABASE_URL in Vercel project environment variables (Supabase/PostgreSQL)."
+    )
+else:
+    _production_db_error = None
+    if _raw_db_url:
+        DATABASE_URL = _raw_db_url
+    else:
+        DATABASE_URL = "sqlite+aiosqlite:///./ai_criss.db"
+
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 from sqlalchemy.pool import NullPool
 
-_connect_args = {"timeout": 30} if "sqlite" in DATABASE_URL else {}
 _is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 
-_engine_kwargs = {
-    "echo": False,
-    "future": True,
-    "connect_args": _connect_args,
-}
+if DATABASE_URL is not None:
+    _connect_args = {"timeout": 30} if "sqlite" in DATABASE_URL else {}
+    _engine_kwargs = {
+        "echo": False,
+        "future": True,
+        "connect_args": _connect_args,
+    }
+    if "sqlite" not in DATABASE_URL:
+        _engine_kwargs["pool_pre_ping"] = True
+        if _is_serverless:
+            _engine_kwargs["poolclass"] = NullPool
+        else:
+            _engine_kwargs["pool_size"] = 10
+            _engine_kwargs["max_overflow"] = 20
+            _engine_kwargs["pool_recycle"] = 300
 
-if "sqlite" not in DATABASE_URL:
-    _engine_kwargs["pool_pre_ping"] = True
-    if _is_serverless:
-        _engine_kwargs["poolclass"] = NullPool
-    else:
-        _engine_kwargs["pool_size"] = 10
-        _engine_kwargs["max_overflow"] = 20
-        _engine_kwargs["pool_recycle"] = 300
-
-engine = create_async_engine(
-    DATABASE_URL,
-    **_engine_kwargs
-)
-
-from sqlalchemy import event, text
-
-
-@event.listens_for(engine.sync_engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:
-    if "sqlite" in DATABASE_URL:
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA busy_timeout=30000")
-        cursor.close()
-
-
-async_session_factory = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False
-)
+    engine = create_async_engine(
+        DATABASE_URL,
+        **_engine_kwargs
+    )
+    async_session_factory = async_sessionmaker(
+        bind=engine,
+        class_=AsyncSession,
+        expire_on_commit=False
+    )
+else:
+    engine = None
+    async_session_factory = None
 
 
 def _migrate_sqlite_columns(sync_conn) -> None:
@@ -100,6 +109,7 @@ def _migrate_sqlite_columns(sync_conn) -> None:
         ("affiliation_details", "VARCHAR(255)"),
         ("latitude", "FLOAT"),
         ("longitude", "FLOAT"),
+        ("active_dataset_id", "VARCHAR(64)"),
     ]
     for col_name, col_def in inst_migrations:
         if inst_cols and col_name not in inst_cols:
@@ -139,16 +149,33 @@ def _migrate_sqlite_columns(sync_conn) -> None:
     sync_conn.execute(text("CREATE INDEX IF NOT EXISTS idx_otp_email_purpose ON otp_verifications (email, purpose, used_at)"))
 
 
+if engine is not None and DATABASE_URL and "sqlite" in DATABASE_URL:
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
+        cursor.close()
+
+
 async def init_db() -> None:
     """Create all database tables if they do not exist and apply idempotent column migrations."""
+    if engine is None:
+        logger.error(_production_db_error)
+        return
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_migrate_sqlite_columns)
 
 
-
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Dependency generator for FastAPI endpoints."""
+    if engine is None or async_session_factory is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=_production_db_error or "Persistent production database is unconfigured. DATABASE_URL is required."
+        )
     async with async_session_factory() as session:
         try:
             yield session

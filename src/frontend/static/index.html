@@ -758,7 +758,7 @@
                     <button type="button" id="nav-investigations" data-workflow="investigations" onclick="navigateWorkflow('investigations')" class="cip-nav-btn">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                            <span>Investigate</span>
+                            <span>Investigations</span>
                         </span>
                         <span id="navBadgeInvestigations" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
@@ -772,14 +772,14 @@
                     <button type="button" id="nav-risks" data-workflow="risks" onclick="navigateWorkflow('risks')" class="cip-nav-btn">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                            <span>Risk</span>
+                            <span>Risks</span>
                         </span>
                         <span id="navBadgeRisks" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
                     <button type="button" id="nav-predictions" data-workflow="predictions" onclick="navigateWorkflow('predictions')" class="cip-nav-btn">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            <span>Forecast</span>
+                            <span>Predictions</span>
                         </span>
                         <span id="navBadgePredictions" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
@@ -825,7 +825,7 @@
                     <button type="button" id="nav-memory" data-workflow="memory" onclick="navigateWorkflow('memory')" class="cip-nav-btn">
                         <span class="flex items-center gap-2.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <span>Historical Context</span>
+                            <span>What Changed</span>
                         </span>
                         <span id="navBadgeMemory" class="text-[11px] font-mono opacity-60">—</span>
                     </button>
@@ -927,15 +927,14 @@
         <div class="w-full flex justify-center px-4 mb-4 pointer-events-none sticky top-20 z-20">
             <nav id="floatingPillNav" class="floating-glass-nav pointer-events-auto flex items-center overflow-x-auto max-w-full" aria-label="Quick Intelligence Navigation">
                 <button type="button" id="float-nav-overview" onclick="navigateWorkflow('overview')" class="nav-pill active">Overview</button>
-                <button type="button" id="float-nav-investigations" onclick="navigateWorkflow('investigations')" class="nav-pill">Investigate</button>
+                <button type="button" id="float-nav-investigations" onclick="navigateWorkflow('investigations')" class="nav-pill">Investigations</button>
                 <button type="button" id="float-nav-insights" onclick="navigateWorkflow('insights')" class="nav-pill">Insights</button>
-                <button type="button" id="float-nav-risks" onclick="navigateWorkflow('risks')" class="nav-pill">Risk</button>
-                <button type="button" id="float-nav-predictions" onclick="navigateWorkflow('predictions')" class="nav-pill">Forecast</button>
+                <button type="button" id="float-nav-risks" onclick="navigateWorkflow('risks')" class="nav-pill">Risks</button>
+                <button type="button" id="float-nav-predictions" onclick="navigateWorkflow('predictions')" class="nav-pill">Predictions</button>
                 <button type="button" id="float-nav-whatif" onclick="navigateWorkflow('whatif')" class="nav-pill">What-If</button>
                 <button type="button" id="float-nav-evidence" onclick="navigateWorkflow('evidence')" class="nav-pill">Evidence</button>
                 <button type="button" id="float-nav-data" onclick="navigateWorkflow('data')" class="nav-pill">Data</button>
                 <button type="button" id="float-nav-osint" onclick="navigateWorkflow('osint')" class="nav-pill">External Context</button>
-                <button type="button" id="float-nav-memory" onclick="navigateWorkflow('memory')" class="nav-pill">Historical Context</button>
                 <button type="button" id="float-nav-profile" onclick="navigateWorkflow('profile')" class="nav-pill">Profile</button>
             </nav>
         </div>
@@ -1507,7 +1506,7 @@
                     <div>
                         <div class="text-[11px] font-mono uppercase tracking-wider cip-muted">Trajectory Modeling &amp; Policy Planning</div>
                         <h2 class="text-lg font-bold">What-If Decision Simulator</h2>
-                        <p class="text-xs cip-muted">Simulate administrative interventions against autoregressive trajectory models to observe expected risk reduction.</p>
+                        <p class="text-xs cip-muted">Simulate administrative interventions against projected risk trends to observe expected risk reduction.</p>
                     </div>
                     <div class="flex items-center space-x-2">
                         <button type="button" onclick="resetWhatIfSliders()" class="px-3 py-1.5 text-xs cip-btn-secondary">Reset Interventions</button>
@@ -1520,7 +1519,7 @@
                     <span class="text-base">⚠️</span>
                     <div>
                         <strong>Model simulation only — not a guaranteed outcome.</strong>
-                        <span class="cip-muted ml-1">Sliders modify projected autoregressive momentum to estimate potential impact against historical baseline trends.</span>
+                        <span class="cip-muted ml-1">Sliders modify projected risk trends to estimate potential impact against historical baseline trends.</span>
                     </div>
                 </div>
 
@@ -1583,23 +1582,23 @@
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div class="p-3 cip-subcard space-y-1">
                             <div class="text-[11px] font-mono uppercase cip-muted">Baseline (Year +3 CRI)</div>
-                            <div id="sqYr3Val" data-alias="whatifBaselineCri" class="text-xl font-bold font-mono">0.300</div>
+                            <div id="sqYr3Val" data-alias="whatifBaselineCri" class="text-xl font-bold font-mono">—</div>
                             <div class="text-[10px] cip-muted">Latest evaluated risk index</div>
                         </div>
                         <div class="p-3 cip-subcard space-y-1">
                             <div class="text-[11px] font-mono uppercase cip-muted">Intervention (Year +3 CRI)</div>
-                            <div id="ivYr3Val" data-alias="whatifProjectedCri" class="text-xl font-bold font-mono text-[#4F8068]">0.215</div>
+                            <div id="ivYr3Val" data-alias="whatifProjectedCri" class="text-xl font-bold font-mono text-[#4F8068]">—</div>
                             <div class="text-[10px] cip-muted">Post-intervention estimate</div>
                         </div>
                         <div class="p-3 cip-subcard space-y-1">
                             <div class="text-[11px] font-mono uppercase cip-muted">Estimated Risk Change</div>
-                            <div id="whatifDeltaCri" class="text-xl font-bold font-mono text-[#4F8068]">-0.085</div>
+                            <div id="whatifDeltaCri" class="text-xl font-bold font-mono text-[#4F8068]">—</div>
                             <div class="text-[10px] cip-muted">Cumulative delta (Δ)</div>
                         </div>
                         <div class="p-3 cip-subcard space-y-1">
                             <div class="text-[11px] font-mono uppercase cip-muted">Risk Trajectory</div>
-                            <div id="whatifOutcomeLabel" class="text-sm font-bold mt-1 text-[#4F8068]">POSITIVE IMPACT</div>
-                            <div class="text-[10px] cip-muted">Intervention halts decline</div>
+                            <div id="whatifOutcomeLabel" class="text-sm font-bold mt-1 text-[#4F8068]">AWAITING SIMULATION</div>
+                            <div class="text-[10px] cip-muted">Simulation — not an observed outcome</div>
                         </div>
                     </div>
 
@@ -1619,25 +1618,7 @@
                                 </thead>
                                 <tbody id="whatIfTrajectoryTableBody" data-alias="whatifComparisonTableBody" class="divide-y divide-gray-200 dark:divide-gray-800 font-mono">
                                     <tr>
-                                        <td class="py-2 pr-4 font-bold">Year +1</td>
-                                        <td class="py-2 px-4">0.320</td>
-                                        <td class="py-2 px-4 text-[#4F8068]">0.270</td>
-                                        <td class="py-2 px-4 text-[#4F8068]">-0.050</td>
-                                        <td class="py-2 pl-4 cip-muted">[0.19 – 0.35]</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="py-2 pr-4 font-bold">Year +2</td>
-                                        <td class="py-2 px-4">0.345</td>
-                                        <td class="py-2 px-4 text-[#4F8068]">0.240</td>
-                                        <td class="py-2 px-4 text-[#4F8068]">-0.105</td>
-                                        <td class="py-2 pl-4 cip-muted">[0.08 – 0.40]</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="py-2 pr-4 font-bold">Year +3</td>
-                                        <td class="py-2 px-4">0.370</td>
-                                        <td class="py-2 px-4 text-[#4F8068]">0.215</td>
-                                        <td class="py-2 px-4 text-[#4F8068]">-0.155</td>
-                                        <td class="py-2 pl-4 cip-muted">[0.00 – 0.45]</td>
+                                        <td colspan="5" class="py-4 text-center cip-muted">Adjust sliders above to compute counterfactual simulation from current baseline.</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1656,7 +1637,7 @@
 
             <!-- ===================================================================== -->
             <!-- WORKFLOW 7: EVIDENCE                                                  -->
-            <!-- 7-Field Provenance Inspector & Complete Institutional Evidence Ledger -->
+            <!-- Supporting Evidence & Verification Ledger                             -->
             <!-- ===================================================================== -->
             <section id="view-evidence" class="workflow-section hidden space-y-6">
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style="border-color: var(--cip-border);">
@@ -1667,7 +1648,7 @@
                     <span id="provenanceCountBadge" class="cip-badge font-mono">0 Evidence Records</span>
                 </div>
 
-                <!-- Selected Insight 7-Field Evidence Inspector -->
+                <!-- Selected Insight Supporting Evidence -->
                 <div id="selectedInsightEvidenceDrawer" class="cip-card p-5 text-xs space-y-3">
                     <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--cip-border);">
                         <span id="selectedInsightTitle" class="font-bold text-sm">Selected Finding Evidence (Select any finding to inspect source document and excerpt)</span>
@@ -2423,12 +2404,12 @@
             investigations: { title: "Institutional Investigations", subtitle: "Natural-language query & cross-signal anomaly investigations" },
             insights: { title: "Insights & Findings", subtitle: "Structured longitudinal insights categorized by magnitude and significance" },
             risks: { title: "Risk & Early Warnings", subtitle: "5-stage progression monitoring emerging risks before escalation" },
-            predictions: { title: "Trajectory Forecast", subtitle: "Deterministic 1–3 year institutional trajectory and autoregressive predictions" },
+            predictions: { title: "Trajectory Forecast", subtitle: "Projected 1–3 year institutional risk trends and baseline indicators" },
             whatif: { title: "What-If Simulator", subtitle: "Counterfactual intervention modeling with parameter-driven impact" },
-            evidence: { title: "Evidence Provenance", subtitle: "7-field deterministic evidence chains grounding all institutional claims" },
+            evidence: { title: "Supporting Evidence", subtitle: "Verified evidence trails grounding institutional findings" },
             data: { title: "Institutional Data", subtitle: "Multi-domain ingestion, canonical observations, and historical datasets" },
             osint: { title: "External Context", subtitle: "Real-time media sentiment, regulatory alerts, and ecosystem intelligence" },
-            memory: { title: "Historical Context", subtitle: "Longitudinal patterns, prior interventions, and institutional memory" },
+            memory: { title: "What Changed", subtitle: "Longitudinal change ledger, prior interventions, and institutional context" },
             profile: { title: "Institutional Profile & Access", subtitle: "Role assignments, governance classification, and identity management" }
         };
 
@@ -3211,12 +3192,15 @@
                     opt.innerText = `${inst.name} (${inst.id}) [${labelType}]`;
                     sel.appendChild(opt);
                 });
-                const storedInst = localStorage.getItem('aicriss_primary_inst') || sessionStorage.getItem('aicriss_primary_inst');
+                const storedInst = localStorage.getItem('cip_selected_institution') || sessionStorage.getItem('cip_selected_institution') || localStorage.getItem('aicriss_primary_inst') || sessionStorage.getItem('aicriss_primary_inst');
                 const matched = (currentInstitutionId && list.find(i => i.id === currentInstitutionId))
                     || (storedInst && list.find(i => i.id === storedInst))
                     || list[0];
                 currentInstitutionId = matched.id;
                 sel.value = currentInstitutionId;
+                try {
+                    localStorage.setItem('cip_selected_institution', currentInstitutionId);
+                } catch (e) {}
                 const activeBadge = document.getElementById('activeInstBadge');
                 if (activeBadge) activeBadge.innerText = `ACTIVE: ${currentInstitutionId}`;
                 const instIdText = document.getElementById('instIdText');
@@ -3244,6 +3228,10 @@
         async function handleSwitchActiveInstitution(instId) {
             if (!instId) return;
             currentInstitutionId = instId;
+            try {
+                localStorage.setItem('cip_selected_institution', instId);
+                sessionStorage.setItem('cip_selected_institution', instId);
+            } catch (e) {}
             localStorage.setItem('aicriss_primary_inst', instId);
             sessionStorage.setItem('aicriss_primary_inst', instId);
 
@@ -4821,8 +4809,8 @@
                             ? assessment.anomalies_detected.map(a => `<li>${a.description}</li>`).join('')
                             : '<li>Operational signals within historical baseline bounds.</li>'
                     );
-                    const ans4 = overviewData?.answers?.can_we_trust_it || 'Verified institutional ledger records across active departments (7-Field Provenance).';
-                    const ans5 = overviewData?.answers?.what_comes_next || 'See 1–3 year deterministic trajectory projection below.';
+                    const ans4 = overviewData?.answers?.can_we_trust_it || 'Verified institutional ledger records across active departments with verified evidence trails.';
+                    const ans5 = overviewData?.answers?.what_comes_next || 'See 1–3 year projected risk trend below.';
                     const ansAction = overviewData?.answers?.what_to_do || (
                         (assessment.recommended_mitigations && assessment.recommended_mitigations.length)
                             ? assessment.recommended_mitigations.map(m => `<li>${m}</li>`).join('')
@@ -5199,7 +5187,7 @@
                         ${relHtml ? `<div><strong>Related Signals Inspected:</strong><ul class="list-disc list-inside">${relHtml}</ul></div>` : ''}
                         ${missHtml ? `<div><strong>Missing Information:</strong><ul class="list-disc list-inside">${missHtml}</ul></div>` : ''}
                         ${contraHtml ? `<div><strong>Contradictions Noted:</strong><ul class="list-disc list-inside">${contraHtml}</ul></div>` : ''}
-                        <div class="space-y-1.5 pt-1"><strong>Supporting 7-Field Evidence (${uniqueEvidence.length} records):</strong>${evCards || '<p class="cip-muted">No direct evidence records matched this domain.</p>'}</div>
+                        <div class="space-y-1.5 pt-1"><strong>Supporting Evidence (${uniqueEvidence.length} records):</strong>${evCards || '<p class="cip-muted">No direct evidence records matched this domain.</p>'}</div>
                     `;
                 }
             } catch (e) {
@@ -5896,18 +5884,22 @@
                         sigBox.innerHTML = `<div class="p-3 cip-subcard cip-muted">No active OSINT crisis signals recorded for current institution/organization context yet.</div>`;
                     } else {
                         sigBox.innerHTML = signals.map(s => `
-                            <div class="p-3 cip-subcard space-y-1.5">
+                            <div class="p-3 cip-subcard space-y-2">
                                 <div class="flex flex-wrap items-center justify-between gap-2">
-                                    <span class="font-bold">${s.title}</span>
+                                    <span class="font-bold text-xs">${s.title}</span>
                                     <div class="flex items-center gap-1.5">
                                         <span class="cip-badge font-mono">${s.stage}</span>
                                         <span class="cip-badge font-mono">${s.severity}</span>
-                                        <span class="cip-badge font-mono">Conf: ${((s.confidence || 0) * 100).toFixed(0)}%</span>
+                                        <span class="cip-badge font-mono">Confidence: ${((s.confidence || 0) * 100).toFixed(0)}%</span>
                                     </div>
                                 </div>
-                                <div class="text-[11px] cip-secondary">${s.rationale}</div>
-                                <div class="text-[11px] font-mono cip-muted">
-                                    Category: ${s.category} | Sources: ${(s.sources || []).length} | Conflicts: ${(s.conflict_notes || []).length}
+                                <div class="text-[11px] cip-secondary">
+                                    <strong>Why it may matter:</strong> ${s.rationale || 'Potential impact on regional operational or academic indicators.'}
+                                </div>
+                                <div class="text-[10px] font-mono cip-muted flex flex-wrap gap-x-4 gap-y-1">
+                                    <span>Category: ${s.category}</span>
+                                    <span>Corroborating Sources: ${(s.sources || []).length} verified</span>
+                                    <span>Information Gaps: ${(s.conflict_notes && s.conflict_notes.length) ? s.conflict_notes.join('; ') : 'None identified'}</span>
                                 </div>
                             </div>
                         `).join('');
@@ -6494,26 +6486,46 @@
                 });
 
                 if (!res.ok) {
-                    if (badge) badge.innerText = `Status: Error (${res.status})`;
+                    if (badge) badge.innerText = `Status: Simulation unavailable (${res.status})`;
+                    const baseCriEl = document.getElementById('sqYr3Val') || document.getElementById('whatifBaselineCri');
+                    const projCriEl = document.getElementById('ivYr3Val') || document.getElementById('whatifProjectedCri');
+                    const deltaCriEl = document.getElementById('whatifDeltaCri');
+                    const outcomeEl = document.getElementById('whatifOutcomeLabel');
+                    const statusBadge = document.getElementById('whatIfResultStatus');
+                    if (baseCriEl) baseCriEl.innerText = "—";
+                    if (projCriEl) projCriEl.innerText = "—";
+                    if (deltaCriEl) { deltaCriEl.innerText = "—"; deltaCriEl.style.color = "inherit"; }
+                    if (outcomeEl) { outcomeEl.innerText = "SIMULATION UNAVAILABLE"; outcomeEl.style.color = "inherit"; }
+                    if (statusBadge) statusBadge.innerText = "Status: Simulation unavailable";
+                    const tbody = document.getElementById('whatIfTrajectoryTableBody') || document.getElementById('whatifComparisonTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable for current parameters.</td></tr>';
+                    }
+                    const expEl = document.getElementById('whatifExplanationText');
+                    if (expEl) expEl.innerText = "Simulation unavailable for this institution or parameters.";
                     return;
                 }
 
                 const sim = await res.json();
                 if (badge) badge.innerText = 'Status: Connected to Predictor';
 
-                let sq3 = 0.370;
-                let iv3 = 0.215;
+                let sq3 = null;
+                let iv3 = null;
 
                 if (sim.status_quo_trajectory && sim.status_quo_trajectory.length >= 3) {
                     sq3 = sim.status_quo_trajectory[2].projected_cri;
                 } else if (sim.baseline && sim.baseline.terminal_projected_cri !== undefined) {
                     sq3 = sim.baseline.terminal_projected_cri;
+                } else if (sim.status_quo_trajectory && sim.status_quo_trajectory.length > 0) {
+                    sq3 = sim.status_quo_trajectory[sim.status_quo_trajectory.length - 1].projected_cri;
                 }
 
                 if (sim.intervention_trajectory && sim.intervention_trajectory.length >= 3) {
                     iv3 = sim.intervention_trajectory[2].projected_cri;
                 } else if (sim.projected_trajectory && sim.projected_trajectory.length >= 3) {
                     iv3 = sim.projected_trajectory[2].projected_cri;
+                } else if (sim.intervention_trajectory && sim.intervention_trajectory.length > 0) {
+                    iv3 = sim.intervention_trajectory[sim.intervention_trajectory.length - 1].projected_cri;
                 }
 
                 const baseCriEl = document.getElementById('sqYr3Val') || document.getElementById('whatifBaselineCri');
@@ -6521,6 +6533,21 @@
                 const deltaCriEl = document.getElementById('whatifDeltaCri');
                 const outcomeEl = document.getElementById('whatifOutcomeLabel');
                 const statusBadge = document.getElementById('whatIfResultStatus');
+
+                if (sq3 === null || iv3 === null) {
+                    if (baseCriEl) baseCriEl.innerText = "—";
+                    if (projCriEl) projCriEl.innerText = "—";
+                    if (deltaCriEl) { deltaCriEl.innerText = "—"; deltaCriEl.style.color = "inherit"; }
+                    if (outcomeEl) { outcomeEl.innerText = "SIMULATION UNAVAILABLE"; outcomeEl.style.color = "inherit"; }
+                    if (statusBadge) statusBadge.innerText = "Status: Simulation unavailable";
+                    const tbody = document.getElementById('whatIfTrajectoryTableBody') || document.getElementById('whatifComparisonTableBody');
+                    if (tbody) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable — insufficient baseline model data.</td></tr>';
+                    }
+                    const expEl = document.getElementById('whatifExplanationText');
+                    if (expEl) expEl.innerText = "Simulation unavailable: insufficient baseline observations.";
+                    return;
+                }
 
                 if (baseCriEl) baseCriEl.innerText = sq3.toFixed(3);
                 if (projCriEl) projCriEl.innerText = iv3.toFixed(3);
@@ -6541,24 +6568,31 @@
                 if (tbody) {
                     const sqPts = sim.status_quo_trajectory || (sim.baseline ? sim.baseline.baseline_trajectory : []) || [];
                     const ivPts = sim.intervention_trajectory || sim.projected_trajectory || [];
-                    const count = Math.max(sqPts.length, ivPts.length, 3);
-                    let rowsHtml = '';
-                    for (let i = 0; i < count; i++) {
-                        const sqPt = sqPts[i] || { projected_cri: sq3, confidence_band_low: 0.1, confidence_band_high: 0.5 };
-                        const ivPt = ivPts[i] || { projected_cri: iv3, confidence_band_low: 0.05, confidence_band_high: 0.45 };
-                        const offset = sqPt.year_offset || (i + 1);
-                        const ptDelta = ivPt.projected_cri - sqPt.projected_cri;
-                        rowsHtml += `
-                            <tr>
-                                <td class="py-2 pr-4 font-bold">Year +${offset}</td>
-                                <td class="py-2 px-4">${sqPt.projected_cri.toFixed(3)}</td>
-                                <td class="py-2 px-4 text-[#4F8068] font-bold">${ivPt.projected_cri.toFixed(3)}</td>
-                                <td class="py-2 px-4 ${ptDelta <= 0 ? 'text-[#4F8068]' : 'text-[#A94A55]'} font-bold">${ptDelta <= 0 ? '' : '+'}${ptDelta.toFixed(3)}</td>
-                                <td class="py-2 pl-4 cip-muted font-mono">[${ivPt.confidence_band_low.toFixed(2)} – ${ivPt.confidence_band_high.toFixed(2)}]</td>
-                            </tr>
-                        `;
+                    const count = Math.max(sqPts.length, ivPts.length);
+                    if (count === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable — no trajectory points generated.</td></tr>';
+                    } else {
+                        let rowsHtml = '';
+                        for (let i = 0; i < count; i++) {
+                            const sqPt = sqPts[i];
+                            const ivPt = ivPts[i];
+                            if (!sqPt || !ivPt) continue;
+                            const offset = sqPt.year_offset || (i + 1);
+                            const ptDelta = ivPt.projected_cri - sqPt.projected_cri;
+                            const lowBand = ivPt.confidence_band_low !== undefined ? ivPt.confidence_band_low.toFixed(2) : '—';
+                            const highBand = ivPt.confidence_band_high !== undefined ? ivPt.confidence_band_high.toFixed(2) : '—';
+                            rowsHtml += `
+                                <tr>
+                                    <td class="py-2 pr-4 font-bold">Year +${offset}</td>
+                                    <td class="py-2 px-4">${sqPt.projected_cri.toFixed(3)}</td>
+                                    <td class="py-2 px-4 text-[#4F8068] font-bold">${ivPt.projected_cri.toFixed(3)}</td>
+                                    <td class="py-2 px-4 ${ptDelta <= 0 ? 'text-[#4F8068]' : 'text-[#A94A55]'} font-bold">${ptDelta <= 0 ? '' : '+'}${ptDelta.toFixed(3)}</td>
+                                    <td class="py-2 pl-4 cip-muted font-mono">[${lowBand} – ${highBand}]</td>
+                                </tr>
+                            `;
+                        }
+                        tbody.innerHTML = rowsHtml || '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable.</td></tr>';
                     }
-                    tbody.innerHTML = rowsHtml;
                 }
 
                 const expEl = document.getElementById('whatifExplanationText');
@@ -6567,7 +6601,21 @@
                 }
             } catch (err) {
                 console.error('What-If simulation error:', err);
-                if (badge) badge.innerText = 'Status: Connection failure';
+                if (badge) badge.innerText = 'Status: Simulation unavailable';
+                const baseCriEl = document.getElementById('sqYr3Val') || document.getElementById('whatifBaselineCri');
+                const projCriEl = document.getElementById('ivYr3Val') || document.getElementById('whatifProjectedCri');
+                const deltaCriEl = document.getElementById('whatifDeltaCri');
+                const outcomeEl = document.getElementById('whatifOutcomeLabel');
+                const statusBadge = document.getElementById('whatIfResultStatus');
+                if (baseCriEl) baseCriEl.innerText = "—";
+                if (projCriEl) projCriEl.innerText = "—";
+                if (deltaCriEl) { deltaCriEl.innerText = "—"; deltaCriEl.style.color = "inherit"; }
+                if (outcomeEl) { outcomeEl.innerText = "SIMULATION UNAVAILABLE"; outcomeEl.style.color = "inherit"; }
+                if (statusBadge) statusBadge.innerText = "Status: Simulation unavailable";
+                const tbody = document.getElementById('whatIfTrajectoryTableBody') || document.getElementById('whatifComparisonTableBody');
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="py-4 text-center cip-muted">Simulation unavailable — connection failure.</td></tr>';
+                }
             }
         }
 

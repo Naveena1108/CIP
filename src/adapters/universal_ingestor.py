@@ -793,25 +793,26 @@ class UniversalInstitutionalIngestor:
         quality_issues: List[DataQualityIssue] = []
         canonical_map: Dict[str, List[Any]] = {"admissions": [], "placements": [], "cet_ranking": []}
 
-        # First check if this workbook matches the RYMEC multi-year block layout
+        # Check if this workbook matches the specialized multi-year block layout via positive schema detection (Section 9)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
             tmp.write(content)
             tmp_path = tmp.name
 
         try:
-            try:
-                rymec_adapter = ExcelInstitutionalAdapter(tmp_path, source_id=filename)
-                parsed_rymec = rymec_adapter.parse()
-                if parsed_rymec["admissions"] or parsed_rymec["placements"] or parsed_rymec["cet_ranking"]:
-                    canonical_map = parsed_rymec
-                    # Override institution_id if scoped by user
-                    if self.institution_id:
-                        for sig_list in canonical_map.values():
-                            for sig in sig_list:
-                                sig.institution_id = self.institution_id
-                    discovered.extend(self._canonical_to_discovered(canonical_map, filename, "XLSX"))
-            except Exception:
-                pass
+            if ExcelInstitutionalAdapter.detect_schema(tmp_path):
+                try:
+                    rymec_adapter = ExcelInstitutionalAdapter(tmp_path, source_id=filename)
+                    parsed_rymec = rymec_adapter.parse()
+                    if parsed_rymec["admissions"] or parsed_rymec["placements"] or parsed_rymec["cet_ranking"]:
+                        canonical_map = parsed_rymec
+                        # Override institution_id if scoped by user
+                        if self.institution_id:
+                            for sig_list in canonical_map.values():
+                                for sig in sig_list:
+                                    sig.institution_id = self.institution_id
+                        discovered.extend(self._canonical_to_discovered(canonical_map, filename, "XLSX"))
+                except Exception as ex:
+                    logger.warning(f"Specialized institutional adapter failed on verified schema {filename}: {ex}", exc_info=True)
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)

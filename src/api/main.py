@@ -45,8 +45,9 @@ async def lifespan(app: FastAPI):
     logger.info("Database initialized successfully.")
     yield
     # Shutdown logic
-    logger.info("Closing database engine pool...")
-    await engine.dispose()
+    if engine is not None:
+        logger.info("Closing database engine pool...")
+        await engine.dispose()
     logger.info("Shutdown complete.")
 
 
@@ -116,12 +117,15 @@ async def health_check():
     Validates API runtime, layer boundary integrity, and active database connectivity.
     """
     db_status = "CONNECTED"
-    try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-    except Exception as e:
-        logger.error(f"Database health check failed: {e}")
-        db_status = f"DISCONNECTED: {str(e)}"
+    if engine is None:
+        db_status = "DISCONNECTED: DATABASE_URL must be configured in deployed production (Supabase/PostgreSQL). Ephemeral /tmp SQLite is forbidden."
+    else:
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            db_status = f"DISCONNECTED: {str(e)}"
 
     return {
         "status": "HEALTHY" if "DISCONNECTED" not in db_status else "DEGRADED",

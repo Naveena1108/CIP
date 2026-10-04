@@ -519,6 +519,27 @@ class InstitutionRepository:
         all_insts = await InstitutionRepository.list_all(session)
         return [i for i in all_insts if InstitutionRepository.user_can_access(i, user)]
 
+    @staticmethod
+    async def set_active_dataset(
+        session: AsyncSession, institution_id: str, dataset_id: Optional[str]
+    ) -> bool:
+        """Persist active dataset selection for an institution (Section 7)."""
+        stmt = select(InstitutionModel).where(InstitutionModel.id == institution_id)
+        row = (await session.execute(stmt)).scalar_one_or_none()
+        if not row:
+            return False
+        row.active_dataset_id = dataset_id
+        await session.flush()
+        return True
+
+    @staticmethod
+    async def get_active_dataset(
+        session: AsyncSession, institution_id: str
+    ) -> Optional[str]:
+        """Retrieve persisted active dataset ID for an institution (Section 7)."""
+        stmt = select(InstitutionModel.active_dataset_id).where(InstitutionModel.id == institution_id)
+        return (await session.execute(stmt)).scalar_one_or_none()
+
 
 class HierarchyNodeRepository:
     @staticmethod
@@ -661,6 +682,14 @@ class SignalSnapshotRepository:
         stmt = stmt.order_by(SignalSnapshotModel.academic_year)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+    @staticmethod
+    async def delete_by_provenance_id(session: AsyncSession, provenance_id: str) -> int:
+        """Cascade delete all canonical snapshots associated with an ingestion dataset ID (Section 8)."""
+        stmt = delete(SignalSnapshotModel).where(SignalSnapshotModel.provenance_id == provenance_id)
+        result = await session.execute(stmt)
+        await session.flush()
+        return result.rowcount or 0
 
 
 class AssessmentRepository:

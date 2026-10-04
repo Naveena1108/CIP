@@ -40,14 +40,20 @@ async def lifespan(app: FastAPI):
     global _db_initialized
     # Startup: ensure tables exist
     logger.info("Initializing database schemas and connection pool...")
-    await init_db()
-    _db_initialized = True
-    logger.info("Database initialized successfully.")
+    try:
+        await init_db()
+        _db_initialized = True
+        logger.info("Database initialized successfully.")
+    except Exception as exc:
+        logger.error(f"Database initialization non-fatal warning: {exc}")
     yield
     # Shutdown logic
     if engine is not None:
-        logger.info("Closing database engine pool...")
-        await engine.dispose()
+        try:
+            logger.info("Closing database engine pool...")
+            await engine.dispose()
+        except Exception:
+            pass
     logger.info("Shutdown complete.")
 
 

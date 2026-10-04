@@ -164,9 +164,16 @@ async def init_db() -> None:
     if engine is None:
         logger.error(_production_db_error)
         return
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await conn.run_sync(_migrate_sqlite_columns)
+    # In serverless deployed environments, schema is already provisioned; skip heavy DDL checks
+    if _is_serverless and "sqlite" not in (DATABASE_URL or ""):
+        logger.info("Serverless PostgreSQL deployment detected: skipping DDL schema inspection on cold start.")
+        return
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.run_sync(_migrate_sqlite_columns)
+    except Exception as e:
+        logger.warning(f"Database schema initialization warning: {e}")
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:

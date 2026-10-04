@@ -537,6 +537,9 @@
                 </div>
 
                 <!-- 6 Digit Input Boxes -->
+                <!-- Sandbox Notice Box -->
+                <div id="otpSandboxNoticeBox" class="hidden p-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs text-left space-y-1"></div>
+
                 <div id="otpInputRow" class="flex justify-center items-center gap-2 py-2">
                     <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" id="otp-0" autocomplete="off">
                     <input type="text" maxlength="1" inputmode="numeric" pattern="[0-9]*" class="otp-digit-box" id="otp-1" autocomplete="off">
@@ -3100,7 +3103,7 @@
                 }
                 if (data && data.status === 'AWAITING_OTP') {
                     statusBox.innerText = `Account created. Verification OTP dispatched to ${payload.email}.`;
-                    showOtpScreen(payload.email, 'signup');
+                    showOtpScreen(payload.email, 'signup', data.message);
                     return true;
                 }
                 statusBox.innerText = `Account created for ${payload.email}. Opening entity onboarding...`;
@@ -4104,7 +4107,7 @@
                 const loginData = await loginRes.json();
                 if (loginData.status === 'AWAITING_OTP') {
                     statusBox.innerText = `Verification code sent to ${email}.`;
-                    showOtpScreen(email, 'login');
+                    showOtpScreen(email, 'login', loginData.message);
                     return true;
                 }
 
@@ -6243,11 +6246,32 @@
             isVerifying: false
         };
 
-        function showOtpScreen(email, purpose) {
+        function showOtpScreen(email, purpose, serverMessage) {
             otpState.email = email;
             otpState.purpose = (purpose || 'login').toLowerCase();
             const targetEl = document.getElementById('otpTargetEmail');
             if (targetEl) targetEl.innerText = email;
+
+            const noticeBox = document.getElementById('otpSandboxNoticeBox');
+            if (noticeBox) {
+                if (serverMessage && (serverMessage.includes('Resend Sandbox') || serverMessage.includes('developer email') || serverMessage.includes('registered developer'))) {
+                    noticeBox.innerHTML = `
+                        <div class="font-bold flex items-center gap-1.5 text-amber-300">
+                            <span>ℹ️</span>
+                            <span>Resend Test Domain Notice</span>
+                        </div>
+                        <p class="leading-relaxed text-amber-100/90 text-[11px] mt-0.5">
+                            ${serverMessage}
+                        </p>
+                        <p class="text-[10px] text-amber-200/70 pt-1 border-t border-amber-500/20">
+                            Please check the inbox of <strong>bsainaveena.aiml.rymec@gmail.com</strong> for your 6-digit verification code.
+                        </p>
+                    `;
+                    noticeBox.classList.remove('hidden');
+                } else {
+                    noticeBox.classList.add('hidden');
+                }
+            }
 
             const credScreen = document.getElementById('authCredentialsScreen');
             const otpScreen = document.getElementById('otpScreen');

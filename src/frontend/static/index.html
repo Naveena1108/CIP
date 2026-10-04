@@ -3014,8 +3014,11 @@
                     errBox.classList.remove('hidden');
                     return false;
                 }
-                document.getElementById('recoveryTokenInput').value = data.reset_token;
-                statusBox.innerText = `Recovery token issued for ${email}. Enter your new password below.`;
+                if (data.reset_token) {
+                    document.getElementById('recoveryTokenInput').value = data.reset_token;
+                }
+                statusBox.innerText = data.message || `Recovery instructions dispatched for ${email}. Enter your recovery token and new password below.`;
+                statusBox.classList.remove('hidden');
                 return true;
             } catch (err) {
                 errBox.innerText = `Recovery error: ${err.message}`;
@@ -3045,6 +3048,7 @@
                     return false;
                 }
                 statusBox.innerText = `Password reset completed for ${data.email}. You may now sign in.`;
+                statusBox.classList.remove('hidden');
                 switchAuthTab('signin');
                 document.getElementById('loginEmail').value = data.email;
                 return true;

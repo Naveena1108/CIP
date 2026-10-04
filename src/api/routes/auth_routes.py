@@ -29,6 +29,7 @@ from src.db.repository import (
     OTPRepository,
     RevokedTokenRepository,
 )
+from src.runtime_env import is_deployed_environment
 from src.services.email_service import send_otp_email
 from src.db.models import UserModel
 from src.taxonomy import (
@@ -663,8 +664,13 @@ async def login_json(
             organization_id=user.organization_id,
         )
 
-    # If skip_otp is requested (e.g. automated test suites)
+    # If skip_otp is requested (strictly permitted in local development only)
     if req.skip_otp:
+        if is_deployed_environment():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OTP verification cannot be bypassed in deployed environments.",
+            )
         token_str = create_access_token(
             user.id,
             user.email,
@@ -701,8 +707,7 @@ async def login_json(
         user_id=user.id,
     )
     sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="login")
-    env = os.environ.get("ENVIRONMENT", "development").lower()
-    if not sent and (env in ("production", "staging") or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+    if not sent and (is_deployed_environment() or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
@@ -750,8 +755,12 @@ async def signup(
         department_or_unit=req.department_or_unit,
         onboarding_completed=False,
     )
-    env = os.environ.get("ENVIRONMENT", "development").lower()
-    if req.skip_otp and env not in ("production", "staging"):
+    if req.skip_otp:
+        if is_deployed_environment():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OTP verification cannot be bypassed in deployed environments.",
+            )
         user.is_verified = True
         await session.flush()
         token_str = create_access_token(
@@ -792,7 +801,7 @@ async def signup(
         user_id=user.id,
     )
     sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose="signup")
-    if not sent and (env in ("production", "staging") or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+    if not sent and (is_deployed_environment() or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
@@ -944,8 +953,7 @@ async def resend_otp(
         user_id=user.id,
     )
     sent = send_otp_email(recipient_email=req.email, otp_code=otp_code, purpose=req.purpose)
-    env = os.environ.get("ENVIRONMENT", "development").lower()
-    if not sent and (env in ("production", "staging") or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
+    if not sent and (is_deployed_environment() or os.environ.get("RESEND_API_KEY") or os.environ.get("SMTP_HOST")):
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="We couldn't send the verification code to your email. Please verify your email configuration or contact your administrator."
@@ -976,6 +984,11 @@ async def register(
     req: RegisterRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
+    if is_deployed_environment():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Direct user registration is disabled in deployed environments. Use /api/v1/auth/signup.",
+        )
     existing = await UserRepository.get_by_email(session, email=req.email)
     if existing:
         raise HTTPException(
@@ -1010,10 +1023,13 @@ async def request_password_recovery(
             detail="No active CIP account found for this email address.",
         )
     reset_token = create_password_reset_token(user.id, user.email)
+    send_otp_email(recipient_email=user.email, otp_code=reset_token[:6], purpose="reset_password")
+    is_deployed = is_deployed_environment()
     return {
         "status": "RECOVERY_TOKEN_ISSUED",
         "email": user.email,
-        "reset_token": reset_token,
+        "reset_token": reset_token if not is_deployed else None,
+        "message": "Password recovery instructions have been dispatched to your email." if is_deployed else "Recovery token issued.",
         "expires_in_seconds": 900,
     }
 

@@ -22,6 +22,7 @@ from src.api.routes.profile_routes import router as profile_router
 from src.api.routes.osint_routes import router as osint_router
 from src.api.auth import require_role
 from src.db.models import UserModel
+from src.runtime_env import is_deployed_environment, get_cors_allowed_origins
 
 # Configure Structured Logging
 logging.basicConfig(
@@ -57,11 +58,12 @@ app = FastAPI(
 )
 
 # CORS Configuration
+cors_origins = get_cors_allowed_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins if cors_origins else ["https://cip-ruby.vercel.app"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 

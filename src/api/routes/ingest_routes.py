@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Reques
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.runtime_env import is_deployed_environment
 
 from src.db.session import get_db_session
 from src.db.repository import (
@@ -789,6 +790,12 @@ async def ingest_synthetic_scenario(
     session: AsyncSession = Depends(get_db_session),
     current_user: UserModel = Depends(require_role("Analyst", "Auditor", "SuperAdmin"))
 ):
+    if is_deployed_environment() and current_user.role != "SuperAdmin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Synthetic scenario generation is disabled in production for non-administrative users.",
+        )
+
     existing_inst = await InstitutionRepository.get_by_id(session, req.institution_id)
     if existing_inst and not InstitutionRepository.user_can_access(existing_inst, current_user):
         raise HTTPException(

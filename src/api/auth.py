@@ -17,6 +17,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.runtime_env import is_deployed_environment
 from src.db.session import get_db_session
 from src.db.repository import (
     UserRepository,
@@ -52,11 +53,11 @@ load_env_files()
 _insecure_default_key = "aicriss-insecure-test-secret-key-change-in-prod-1234567890"
 _env_secret = (os.getenv("JWT_SECRET_KEY") or "").strip()
 
-if os.getenv("VERCEL") or os.getenv("ENVIRONMENT") == "production":
+if is_deployed_environment():
     if not _env_secret or _env_secret == _insecure_default_key:
         raise RuntimeError(
             "CRITICAL SECURITY CONFIGURATION ERROR: A secure, non-default JWT_SECRET_KEY "
-            "environment variable must be configured in production/Vercel."
+            "environment variable must be configured in deployed environments."
         )
     SECRET_KEY = _env_secret
 else:

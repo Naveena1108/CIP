@@ -10,6 +10,7 @@ import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
+from src.runtime_env import is_deployed_environment
 
 logger = logging.getLogger("ai_criss.email")
 
@@ -162,7 +163,7 @@ def send_otp_email(
             return False
 
     # 3. Development / Local environment without configured SMTP
-    is_prod = bool(os.getenv("VERCEL") or os.getenv("ENVIRONMENT") == "production")
+    is_prod = is_deployed_environment()
     if is_prod:
         logger.error(f"Cannot dispatch verification email to {recipient_email}: no SMTP or email provider configured in production environment.")
         return False

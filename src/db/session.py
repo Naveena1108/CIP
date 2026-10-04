@@ -20,13 +20,29 @@ if DATABASE_URL.startswith("postgres://"):
 elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
+from sqlalchemy.pool import NullPool
+
 _connect_args = {"timeout": 30} if "sqlite" in DATABASE_URL else {}
+_is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+
+_engine_kwargs = {
+    "echo": False,
+    "future": True,
+    "connect_args": _connect_args,
+}
+
+if "sqlite" not in DATABASE_URL:
+    _engine_kwargs["pool_pre_ping"] = True
+    if _is_serverless:
+        _engine_kwargs["poolclass"] = NullPool
+    else:
+        _engine_kwargs["pool_size"] = 10
+        _engine_kwargs["max_overflow"] = 20
+        _engine_kwargs["pool_recycle"] = 300
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=False,
-    future=True,
-    connect_args=_connect_args,
+    **_engine_kwargs
 )
 
 from sqlalchemy import event, text

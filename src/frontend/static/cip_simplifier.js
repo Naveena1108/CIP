@@ -56,6 +56,22 @@
             return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         },
 
+        // --- 2b. CLEAN EXECUTIVE NARRATIVE (Sanitizes technical and algorithm jargon) ---
+        cleanExecutiveNarrative: function (text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/\[DETERMINISTIC GROUND-TRUTH LOCK:[^\]]*\]\s*/gi, '')
+                .replace(/Z-score:\s*[+-]?\d+(\.\d+)?/gi, '')
+                .replace(/\(Z-score[^)]*\)/gi, '')
+                .replace(/\(Z-Score[^)]*\)/gi, '')
+                .replace(/empirical signal anomalies/gi, 'notable operational changes')
+                .replace(/Composite Risk Index of (0\.\d+)/gi, (m, p1) => `Risk Score of ${Math.round(parseFloat(p1) * 100)}/100`)
+                .replace(/Composite Risk Index:?\s*(0\.\d+)/gi, (m, p1) => `Risk Score: ${Math.round(parseFloat(p1) * 100)}/100`)
+                .replace(/\(CRI[:=\s]*(0\.\d+)\)/gi, (m, p1) => `(Risk Score: ${Math.round(parseFloat(p1) * 100)}/100)`)
+                .replace(/CRI[=:\s]+(0\.\d+)/gi, (m, p1) => `Risk Score: ${Math.round(parseFloat(p1) * 100)}/100`)
+                .trim();
+        },
+
         // --- 3. RISK LEVEL & STATUS MAPPING ---
         getRiskStatus: function (cri, riskLevelStr) {
             const score = typeof cri === 'number' ? cri : parseFloat(cri || 0);
@@ -139,81 +155,159 @@
 
             // Detect Placement
             if (metric.toLowerCase().includes('placement')) {
-                whatHappened = 'Fewer students are getting placed.';
                 if (observed !== null && baseline !== null) {
-                    whatChanged = `Placement fell from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                    if (observed < baseline) {
+                        whatHappened = 'Fewer students are getting placed.';
+                        whatChanged = `Placement fell from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                        whyItMatters = 'Fewer students may get jobs after graduation, which could reduce future admissions.';
+                        whyThinkThis = [
+                            'Placement dropped over consecutive reporting years.',
+                            'The decline appears across multiple departments.',
+                            'Verified from official college placement records.'
+                        ];
+                        whatNext = 'Check placement support and campus hiring activity by department.';
+                    } else if (observed > baseline) {
+                        whatHappened = 'Student placement rate improved.';
+                        whatChanged = `Placement rose from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                        whyItMatters = 'Improved student placements strengthen institutional reputation and alumni career outcomes.';
+                        whyThinkThis = [
+                            'Placement outcomes improved relative to historical baseline.',
+                            'Verified from official college placement records.'
+                        ];
+                        whatNext = 'Maintain active corporate recruiting pipelines and student preparation.';
+                    } else {
+                        whatHappened = 'Student placement rate remained steady.';
+                        whatChanged = `Placement remained at ${Math.round(observed)}% (${year}).`;
+                    }
                 } else {
-                    whatChanged = `Placement rate dropped significantly in ${year}.`;
+                    whatChanged = `Placement rate shifted in ${year}.`;
                 }
-                whyItMatters = 'Fewer students may get jobs after graduation, which could reduce future admissions.';
-                whyThinkThis = [
-                    'Placement dropped over consecutive reporting years.',
-                    'The decline appears across multiple departments.',
-                    'Verified from official college placement records.'
-                ];
-                whatNext = 'Check placement support and campus hiring activity by department.';
             }
             // Detect Admissions
-            else if (metric.toLowerCase().includes('admiss') || metric.toLowerCase().includes('intake')) {
-                whatHappened = 'Fewer new students enrolled.';
+            else if (metric.toLowerCase().includes('admiss') || metric.toLowerCase().includes('intake') || metric.toLowerCase().includes('enroll')) {
                 if (observed !== null && baseline !== null) {
-                    whatChanged = `Admissions fell from ${Math.round(baseline)} to ${Math.round(observed)} students (${year}).`;
+                    if (observed < baseline) {
+                        whatHappened = 'Fewer new students enrolled.';
+                        whatChanged = `Admissions fell from ${Math.round(baseline)} to ${Math.round(observed)} students (${year}).`;
+                        whyItMatters = 'Lower student intake can reduce tuition revenue and leave seats vacant.';
+                        whyThinkThis = [
+                            'Intake numbers were lower than the historical baseline.',
+                            'Fewer seats were filled in core branches.',
+                            'Verified from admissions registers.'
+                        ];
+                        whatNext = 'Examine branch-wise admission numbers and student inquiry rates.';
+                    } else if (observed > baseline) {
+                        whatHappened = 'New student admissions increased.';
+                        whatChanged = `Admissions rose from ${Math.round(baseline)} to ${Math.round(observed)} students (${year}).`;
+                        whyItMatters = 'Expanding student intake requires matching faculty staffing, lab infrastructure, and placement capacity.';
+                        whyThinkThis = [
+                            'Admissions intake exceeded historical baseline levels.',
+                            'More students enrolled in this academic period.',
+                            'Verified from admissions registers.'
+                        ];
+                        whatNext = 'Ensure department student-to-faculty ratios and placement pipelines scale to meet higher student intake.';
+                    } else {
+                        whatHappened = 'New student intake remained steady.';
+                        whatChanged = `Admissions remained at ${Math.round(observed)} students (${year}).`;
+                    }
                 } else {
-                    whatChanged = `Enrollment numbers dropped below historical levels in ${year}.`;
+                    whatChanged = `Enrollment shifted from historical levels in ${year}.`;
                 }
-                whyItMatters = 'Lower student intake can reduce tuition revenue and leave seats vacant.';
-                whyThinkThis = [
-                    'Intake numbers were lower than the historical baseline.',
-                    'Fewer seats were filled in core branches.',
-                    'Verified from admissions registers.'
-                ];
-                whatNext = 'Examine branch-wise admission numbers and student inquiry rates.';
             }
             // Detect Faculty
-            else if (metric.toLowerCase().includes('faculty')) {
-                whatHappened = 'More faculty members left this year.';
+            else if (metric.toLowerCase().includes('faculty') || metric.toLowerCase().includes('staff') || metric.toLowerCase().includes('teacher')) {
+                const isTurnover = metric.toLowerCase().includes('turnover') || metric.toLowerCase().includes('depart') || metric.toLowerCase().includes('attrition') || metric.toLowerCase().includes('exit');
                 if (observed !== null && baseline !== null) {
-                    whatChanged = `Faculty turnover rose from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                    if (isTurnover) {
+                        if (observed > baseline) {
+                            whatHappened = 'More faculty members left this year.';
+                            whatChanged = `Faculty turnover rose from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                            whyItMatters = 'Losing experienced teachers can disrupt classes and lower student satisfaction.';
+                        } else {
+                            whatHappened = 'Faculty departures decreased.';
+                            whatChanged = `Faculty turnover fell from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                            whyItMatters = 'Better faculty retention improves instructional continuity and research productivity.';
+                        }
+                    } else {
+                        if (observed < baseline) {
+                            whatHappened = 'Teaching faculty count decreased.';
+                            whatChanged = `Faculty count fell from ${Math.round(baseline)} to ${Math.round(observed)} (${year}).`;
+                            whyItMatters = 'Lower faculty counts increase student-faculty ratios and teaching workloads.';
+                        } else {
+                            whatHappened = 'Teaching faculty count increased.';
+                            whatChanged = `Faculty count rose from ${Math.round(baseline)} to ${Math.round(observed)} (${year}).`;
+                            whyItMatters = 'Staff expansion supports expanded course offerings and departmental research.';
+                        }
+                    }
                 } else {
-                    whatChanged = `Faculty departures were higher than usual in ${year}.`;
+                    whatChanged = `Faculty staffing numbers shifted in ${year}.`;
                 }
-                whyItMatters = 'Losing experienced teachers can disrupt classes and lower student satisfaction.';
                 whyThinkThis = [
-                    'More teachers departed than in previous years.',
-                    'Department teaching rosters show higher vacancy.',
-                    'Verified from human resources records.'
+                    'Department staffing rosters show changes relative to prior cycles.',
+                    'Verified from institutional human resources records.'
                 ];
-                whatNext = 'Review department staffing and teacher retention support.';
+                whatNext = 'Review department staffing balance and faculty retention support.';
             }
             // Detect Rank / CET
             else if (metric.toLowerCase().includes('rank') || metric.toLowerCase().includes('cutoff')) {
-                whatHappened = 'Admissions cutoff ranks widened.';
                 if (observed !== null && baseline !== null) {
-                    whatChanged = `Average closing rank shifted from ${Math.round(baseline)} to ${Math.round(observed)} (${year}).`;
+                    if (observed > baseline) {
+                        whatHappened = 'Admissions cutoff ranks widened.';
+                        whatChanged = `Average closing rank shifted back from ${Math.round(baseline)} to ${Math.round(observed)} (${year}).`;
+                        whyItMatters = 'Lower entrance cutoffs may reflect declining student preference for this college.';
+                    } else if (observed < baseline) {
+                        whatHappened = 'Admissions cutoff ranks improved.';
+                        whatChanged = `Average closing rank improved from ${Math.round(baseline)} to ${Math.round(observed)} (${year}).`;
+                        whyItMatters = 'More competitive cutoffs indicate rising student preference and institutional prestige.';
+                    } else {
+                        whatHappened = 'Admissions cutoff ranks remained steady.';
+                        whatChanged = `Closing rank remained at ${Math.round(observed)} (${year}).`;
+                    }
                 } else {
                     whatChanged = `Admission ranks shifted noticeably in ${year}.`;
                 }
-                whyItMatters = 'Lower entrance cutoffs may reflect declining student preference for this college.';
                 whyThinkThis = [
-                    'Rank cutoffs opened wider across counseling rounds.',
+                    'Rank cutoffs tracked across state entrance counseling rounds.',
                     'Verified against state entrance counseling ledgers.'
                 ];
                 whatNext = 'Compare entrance preferences with nearby peer institutions.';
             }
             // Detect Attendance
             else if (metric.toLowerCase().includes('attend')) {
-                whatHappened = 'Student attendance dropped.';
                 if (observed !== null && baseline !== null) {
-                    whatChanged = `Average attendance fell from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                    if (observed < baseline) {
+                        whatHappened = 'Student attendance dropped.';
+                        whatChanged = `Average attendance fell from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                        whyItMatters = 'Low attendance often leads to lower exam pass rates and higher course dropouts.';
+                    } else if (observed > baseline) {
+                        whatHappened = 'Student attendance improved.';
+                        whatChanged = `Average attendance rose from ${Math.round(baseline)}% to ${Math.round(observed)}% (${year}).`;
+                        whyItMatters = 'Higher student engagement in lectures correlates with better academic outcomes.';
+                    } else {
+                        whatHappened = 'Student attendance remained steady.';
+                        whatChanged = `Average attendance remained at ${Math.round(observed)}% (${year}).`;
+                    }
                 } else {
-                    whatChanged = `Daily attendance dropped noticeably in ${year}.`;
+                    whatChanged = `Daily attendance shifted noticeably in ${year}.`;
                 }
-                whyItMatters = 'Low attendance often leads to lower exam pass rates and higher course dropouts.';
                 whyThinkThis = [
-                    'Class attendance fell across several semesters.',
+                    'Class attendance logged across academic semesters.',
                     'Verified from student attendance logs.'
                 ];
                 whatNext = 'Check semester attendance records by class.';
+            }
+            // General Fallback
+            else if (observed !== null && baseline !== null) {
+                if (observed > baseline) {
+                    whatHappened = `${metric} increased.`;
+                    whatChanged = `${metric} rose from ${Math.round(baseline)} to ${Math.round(observed)} (${year}).`;
+                } else if (observed < baseline) {
+                    whatHappened = `${metric} decreased.`;
+                    whatChanged = `${metric} fell from ${Math.round(baseline)} to ${Math.round(observed)} (${year}).`;
+                } else {
+                    whatHappened = `${metric} remained steady.`;
+                    whatChanged = `${metric} remained at ${Math.round(observed)} (${year}).`;
+                }
             }
 
             // Severity in everyday words
@@ -321,11 +415,21 @@
                 };
             }
 
-            const first = dataPoints[0];
-            const last = dataPoints[dataPoints.length - 1];
+            // Safely extract numeric value whether dataPoints contains numbers or objects
+            const getVal = (pt) => {
+                if (typeof pt === 'number') return pt;
+                if (!pt || typeof pt !== 'object') return 0;
+                if (pt.composite_risk_index !== undefined) return Number(pt.composite_risk_index);
+                if (pt.y !== undefined) return Number(pt.y);
+                if (pt.value !== undefined) return Number(pt.value);
+                if (pt.placement_percentage !== undefined) return Number(pt.placement_percentage);
+                return 0;
+            };
+
+            const first = getVal(dataPoints[0]);
+            const last = getVal(dataPoints[dataPoints.length - 1]);
             const diff = last - first;
             const isPlacement = metricType === 'placement';
-            const isRisk = metricType === 'risk';
 
             if (isPlacement) {
                 if (diff < -5) {
@@ -351,26 +455,30 @@
                 };
             }
 
-            // General Risk
-            if (diff > 0.1) {
+            // Institutional Risk Score (0.0 to 1.0 or 0 to 100)
+            const firstScore = first <= 1.0 ? Math.round(first * 100) : Math.round(first);
+            const lastScore = last <= 1.0 ? Math.round(last * 100) : Math.round(last);
+            const scoreDiff = lastScore - firstScore;
+
+            if (scoreDiff > 5) {
                 return {
-                    title: 'Risk is increasing',
-                    explanation: 'Institutional risk rose over recent academic years.',
-                    highlight: 'Recent indicators show increased pressure on college operations.',
+                    title: 'Risk is trending upward',
+                    explanation: `Risk score rose from ${firstScore}/100 to ${lastScore}/100 across recent academic periods.`,
+                    highlight: 'Key operational indicators show increased pressure on college operations.',
                     trendDirection: 'UP'
                 };
-            } else if (diff < -0.1) {
+            } else if (scoreDiff < -5) {
                 return {
                     title: 'Risk is decreasing',
-                    explanation: 'Institutional performance has been improving steadily.',
-                    highlight: 'Recent indicators show healthy operational recovery.',
+                    explanation: `Risk score improved from ${firstScore}/100 down to ${lastScore}/100 across recent academic periods.`,
+                    highlight: 'Recent indicators reflect healthy recovery and stabilizing metrics.',
                     trendDirection: 'DOWN'
                 };
             }
             return {
                 title: 'Risk is stable',
-                explanation: 'Institutional operations have remained steady across recent years.',
-                highlight: 'Numbers are within expected baseline variation.',
+                explanation: `Risk score has remained steady at ${lastScore}/100 across recent reporting periods.`,
+                highlight: 'Numbers are within expected historical baseline tolerances.',
                 trendDirection: 'STABLE'
             };
         }

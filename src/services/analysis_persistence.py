@@ -375,9 +375,10 @@ class AnalysisPersistenceService:
             else f"Operational stress detected primarily in {assessment.primary_driving_signal}. Close monitoring required."
         )
 
+        risk_score_100 = int(round(cri * 100))
         what_is_happening = (
             f"Institution {inst_name} is operating in the {status_val.upper()} risk category "
-            f"(CRI {cri:.2f}). Operational performance across historical periods reflects {status_summary.lower()}"
+            f"(Risk score: {risk_score_100}/100). {status_summary}"
         )
 
         what_changed = (

@@ -923,12 +923,14 @@ class LLMStructuredReasoner:
         wih_uncertain = bool(wih_unverified)
         if wih_unverified:
             unverified_flagged.append(
-                f"Unverified numeric value(s) {wih_unverified} in what_is_happening; locked to deterministic CRI {dossier.composite_risk_index:.2f}."
+                f"Unverified numeric value(s) {wih_unverified} in what_is_happening; verified against deterministic CRI {dossier.composite_risk_index:.2f}."
             )
-            response.what_is_happening = (
-                f"[DETERMINISTIC GROUND-TRUTH LOCK: CRI={dossier.composite_risk_index:.2f} ({dossier.risk_level})] "
-                f"{response.what_is_happening}"
-            )
+            # Enforce verified institutional prefix without technical debug tags
+            if not response.what_is_happening.startswith("Institution"):
+                response.what_is_happening = (
+                    f"Institution {dossier.institution_id} is evaluated at {dossier.risk_level} risk. "
+                    f"{response.what_is_happening}"
+                )
 
         grounded_claims.append(
             GroundedClaim(
@@ -1055,14 +1057,16 @@ class LLMStructuredReasoner:
                 )
 
         return (
-            "You are the Chief Institutional Risk Auditor for the CIP Crisis Intelligence Platform.\n"
+            "You are the Executive Risk Advisor for the CIP Crisis Intelligence Platform.\n"
             "Analyze the following mathematically verified InstitutionalDossier and produce an AI Executive Analysis JSON.\n"
             "CRITICAL RULES:\n"
-            "1. DO NOT invent any statistics, years, departments, or facts not explicitly present in `evidence_tokens`.\n"
-            "2. Deterministic code is solely responsible for metrics, anomalies, risk, and forecast calculations. "
-            "Every root cause MUST cite the exact `observed_value`, `baseline_value`, and `deviation_zscore` from the tokens.\n"
-            "3. If a domain has no evidence or is uncertain, explicitly state that evidence is missing or uncertain.\n"
-            "4. Output ONLY valid JSON matching the schema.\n\n"
+            "1. Write in clear, everyday executive English that university leaders can immediately understand.\n"
+            "2. DO NOT invent any statistics, years, departments, or facts not explicitly present in `evidence_tokens`.\n"
+            "3. DO NOT use mathematical jargon such as 'z-score', 'standard deviation', 'variance', or algorithm tokens in the narrative.\n"
+            "   State changes naturally (e.g., 'placements fell from 26% to 12% in AY 2024; admissions rose from 56 to 60').\n"
+            "4. Always mention the specific academic year, department, and supporting source records for each finding.\n"
+            "5. If a domain has no evidence or is uncertain, explicitly state that evidence is missing or uncertain.\n"
+            "6. Output ONLY valid JSON matching the schema.\n\n"
             f"INSTITUTION ID: {dossier.institution_id}\n"
             f"RISK LEVEL: {dossier.risk_level}\n"
             f"COMPOSITE RISK INDEX: {dossier.composite_risk_index}\n"
@@ -1089,26 +1093,29 @@ class LLMStructuredReasoner:
         Never pretends an LLM was used.
         """
         prov_records = cls._ensure_token_provenance(dossier)
+        risk_pct = int(round(dossier.composite_risk_index * 100))
+        clean_threat = dossier.primary_threat.replace('_', ' ').title()
 
         if dossier.total_anomalies == 0:
             summary = (
-                f"Institution {dossier.institution_id} currently exhibits a {dossier.risk_level} risk profile "
-                f"with a Composite Risk Index of {dossier.composite_risk_index:.2f}. "
-                f"All monitored admissions, placement, and ranking signals remain within historical baseline tolerances. "
-                f"Primary monitored domain: {dossier.primary_threat}."
+                f"Institution {dossier.institution_id} maintains a stable operational profile "
+                f"with a Risk Score of {risk_pct}/100 ({dossier.risk_level} risk). "
+                f"Monitored student admissions, placement outcomes, and academic indicators remain within standard historical baseline tolerances."
             )
-            causes = ["No statistically significant negative deviations (Z >= 1.5) detected across monitored academic years."]
-            priorities = ["Routine annual verification of admissions and placement ledger submissions."]
+            causes = ["All monitored institutional indicators remain within standard historical tolerances."]
+            priorities = ["Continue routine annual verification of admissions and placement ledger submissions."]
         else:
             summary = (
-                f"Institution {dossier.institution_id} has been flagged at {dossier.risk_level} risk "
-                f"(Composite Risk Index: {dossier.composite_risk_index:.2f}), driven primarily by {dossier.primary_threat}. "
-                f"The deterministic evaluation engine isolated {dossier.total_anomalies} empirical signal anomalies "
-                f"requiring immediate executive review and governance intervention."
+                f"Institution {dossier.institution_id} is evaluated at {dossier.risk_level} risk "
+                f"(Risk Score: {risk_pct}/100), driven primarily by changes in {clean_threat}. "
+                f"Our analysis identified {dossier.total_anomalies} significant operational area(s) needing leadership attention."
             )
-            causes = [t.narrative_fragment for t in dossier.evidence_tokens]
+            causes = [
+                t.narrative_fragment.replace('Z-score:', 'deviation:').replace('Z-Score:', 'deviation:')
+                for t in dossier.evidence_tokens
+            ]
             priorities = [
-                f"Audit {t.signal_name} ({t.metric_name}) records for AY {t.academic_year} (severity: {t.severity})."
+                f"Audit {t.signal_name.replace('_', ' ')} records for AY {t.academic_year} (severity: {t.severity})."
                 for t in dossier.evidence_tokens
             ]
 

@@ -427,6 +427,7 @@ def _compute_institutional_slopes(
 # Caches to prevent duplicate processing & repeated clicks (Part 16 & 29: Caching & Idempotency)
 _RISK_TREND_CACHE: Dict[str, Dict[str, Any]] = {}
 _PREDICTION_CACHE: Dict[str, Dict[str, Any]] = {}
+_REPORT_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 @router.post("/{institution_id}/generate-risk-trend", response_model=RiskTrendResponse)
@@ -487,8 +488,11 @@ async def generate_or_get_risk_trend(
     predictor = TrajectoryPredictor()
     historical_points: List[RiskTrendPoint] = []
 
+    # Focus on the most recent 6 periods if dataset is large, ensuring fast calculation and uncluttered graphs
+    eval_years = distinct_years[-6:] if len(distinct_years) > 6 else distinct_years
+
     # Calculate period-by-period points
-    for yr in distinct_years:
+    for yr in eval_years:
         sub_cet = [c for c in cet if c.academic_year == yr]
         sub_adm = [a for a in admissions if a.academic_year == yr]
         sub_plc = [p for p in placements if p.graduation_year == yr]
@@ -689,6 +693,12 @@ async def get_institution_report(
     current_user: UserModel = Depends(get_current_user)
 ):
     cet, admissions, placements, dynamic_signals = await _load_institutional_signals(session, institution_id, current_user)
+    
+    rep_cache_key = f"{institution_id}_{len(cet)}_{len(admissions)}_{len(placements)}_{len(dynamic_signals)}"
+    if rep_cache_key in _REPORT_CACHE:
+        cached_resp = _REPORT_CACHE[rep_cache_key]
+        return ExecutiveNarrativeResponse.model_validate(cached_resp) if isinstance(cached_resp, dict) else cached_resp
+
     org_id = await _resolve_org_id(session, institution_id, current_user)
     ingestion_records = await IngestionRecordRepository.list_by_institution(session, institution_id)
     dq_issues: List[DataQualityIssue] = []
@@ -737,6 +747,7 @@ async def get_institution_report(
     reasoner = LLMStructuredReasoner()
     report = reasoner.generate_narrative(dossier, forecast=forecast)
     report.organization_id = org_id
+    _REPORT_CACHE[rep_cache_key] = report
     return report
 
 

@@ -287,6 +287,8 @@ class OrganizationRepository:
             return True
         if user.organization_id and org.id == user.organization_id:
             return True
+        if user.primary_institution_id and org.id == user.primary_institution_id:
+            return True
         return False
 
 
@@ -1110,7 +1112,6 @@ class RevokedTokenRepository:
 
         rec = RevokedTokenModel(
             id=token_hash,
-            token=token[-32:],
             revoked_at=datetime.now(timezone.utc),
             expires_at=expires_at,
         )

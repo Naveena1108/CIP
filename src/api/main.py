@@ -129,7 +129,7 @@ async def health_check():
     """
     db_status = "CONNECTED"
     if engine is None:
-        db_status = "DISCONNECTED: DATABASE_URL must be configured in deployed production (Supabase/PostgreSQL). Ephemeral /tmp SQLite is forbidden."
+        db_status = "DISCONNECTED: Database engine is not initialized."
     else:
         try:
             async with engine.connect() as conn:

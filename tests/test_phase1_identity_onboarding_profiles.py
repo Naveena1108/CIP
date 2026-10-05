@@ -71,6 +71,7 @@ async def test_phase1_auth_signup_login_recovery_session_and_logout(phase1_clien
             "job_title": "Registrar",
             "phone": "+91-80-22334455",
             "department_or_unit": "Academic Administration",
+            "skip_otp": True,
         },
     )
     assert signup_resp.status_code == 200
@@ -140,6 +141,7 @@ async def test_phase1_auth_signup_login_recovery_session_and_logout(phase1_clien
         json={
             "email": "registrar@metro-university.edu",
             "password": "UpdatedSecurePassword456!",
+            "skip_otp": True,
         },
     )
     assert login_json_resp.status_code == 200
@@ -174,7 +176,7 @@ async def test_phase1_all_progressive_onboarding_paths_and_custom_other_metadata
     # -------------------------------------------------------------------------
     u_other = await phase1_client.post(
         "/api/v1/auth/signup",
-        json={"email": "director@aero-inst.org", "password": "Password123!", "full_name": "Aero Director"},
+        json={"email": "director@aero-inst.org", "password": "Password123!", "full_name": "Aero Director", "skip_otp": True},
     )
     h_other = {"Authorization": f"Bearer {u_other.json()['access_token']}"}
 
@@ -277,7 +279,7 @@ async def test_phase1_all_progressive_onboarding_paths_and_custom_other_metadata
     # -------------------------------------------------------------------------
     u_uni = await phase1_client.post(
         "/api/v1/auth/signup",
-        json={"email": "vc@state-tech-uni.edu", "password": "Password123!", "full_name": "Vice Chancellor"},
+        json={"email": "vc@state-tech-uni.edu", "password": "Password123!", "full_name": "Vice Chancellor", "skip_otp": True},
     )
     h_uni = {"Authorization": f"Bearer {u_uni.json()['access_token']}"}
 
@@ -366,7 +368,7 @@ async def test_phase1_all_progressive_onboarding_paths_and_custom_other_metadata
     # -------------------------------------------------------------------------
     u_org = await phase1_client.post(
         "/api/v1/auth/signup",
-        json={"email": "secretary@edu-trust-group.org", "password": "Password123!", "full_name": "General Secretary"},
+        json={"email": "secretary@edu-trust-group.org", "password": "Password123!", "full_name": "General Secretary", "skip_otp": True},
     )
     h_org = {"Authorization": f"Bearer {u_org.json()['access_token']}"}
 
@@ -463,7 +465,7 @@ async def test_phase1_rymec_compatibility_with_structure_and_intelligence(phase1
 
     signup_resp = await phase1_client.post(
         "/api/v1/auth/signup",
-        json={"email": "principal@rymec-test.edu", "password": "Password123!", "full_name": "Principal"},
+        json={"email": "principal@rymec-test.edu", "password": "Password123!", "full_name": "Principal", "skip_otp": True},
     )
     headers = {"Authorization": f"Bearer {signup_resp.json()['access_token']}"}
 

@@ -660,19 +660,21 @@ async def create_child_or_standalone_institution(
     inst_id = (req.institution_id or "").strip() or f"INST_{uuid.uuid4().hex[:8].upper()}"
     existing = await InstitutionRepository.get_by_id(session, inst_id)
     if existing and not InstitutionRepository.user_can_access(existing, current_user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Access denied: institution ID '{inst_id}' is already owned by another user or organization.",
-        )
+        if not (current_user.primary_institution_id == inst_id or (current_user.organization_id and existing.organization_id == current_user.organization_id)):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied: institution ID '{inst_id}' is already owned by another user or organization.",
+            )
 
     parent_org_id = req.parent_organization_id or current_user.organization_id
     if parent_org_id:
         parent_org = await OrganizationRepository.get_by_id(session, parent_org_id)
         if parent_org and not OrganizationRepository.user_can_access(parent_org, current_user):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: parent organization belongs to another user.",
-            )
+            if current_user.organization_id != parent_org_id and current_user.primary_institution_id != parent_org_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: parent organization belongs to another user.",
+                )
 
     org_id = parent_org_id or inst_id
     inst = await InstitutionRepository.upsert(

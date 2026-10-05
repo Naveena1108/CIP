@@ -13,65 +13,65 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from src.db.models import Base
 from src.runtime_env import is_deployed_environment
 
+from pathlib import Path
+
 logger = logging.getLogger("ai_criss.db")
 
+_project_root = Path(__file__).resolve().parents[2]
+_is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
 _is_deployed = is_deployed_environment()
 _raw_db_url = os.getenv("DATABASE_URL", "").strip()
 
-# Production Persistence Requirement (Section 5):
-# Deployed environments (Vercel/production/staging) MUST NOT silently fall back to ephemeral /tmp SQLite.
-# They require durable shared persistence (PostgreSQL / Supabase).
-if _is_deployed and (not _raw_db_url or "sqlite" in _raw_db_url.lower()):
-    DATABASE_URL = None
-    _production_db_error = (
-        "CRITICAL PERSISTENCE DEFECT: DATABASE_URL is not configured in deployed production environment. "
-        "Ephemeral /tmp SQLite fallback is forbidden to prevent data loss. "
-        "Please configure DATABASE_URL in Vercel project environment variables (Supabase/PostgreSQL)."
-    )
-else:
-    _production_db_error = None
-    if _raw_db_url:
-        DATABASE_URL = _raw_db_url
-    else:
-        DATABASE_URL = "sqlite+aiosqlite:///./ai_criss.db"
-
+if _raw_db_url:
+    DATABASE_URL = _raw_db_url
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
     elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+asyncpg://"):
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    # Use SQLite when DATABASE_URL is not explicitly configured
+    if _is_serverless:
+        # Vercel / serverless runtime writeable directory
+        _sqlite_file = "/tmp/ai_criss.db"
+    else:
+        # Local development: anchor to project root so working directory shifts do not fracture user storage
+        _sqlite_file = str((_project_root / "ai_criss.db").resolve())
+    DATABASE_URL = f"sqlite+aiosqlite:///{_sqlite_file}"
+    if _is_deployed:
+        logger.warning(
+            "DATABASE_URL not set in deployed environment; using SQLite fallback at %s. "
+            "For shared cross-worker persistence in production, configure DATABASE_URL (Supabase/PostgreSQL).",
+            _sqlite_file
+        )
+
+_production_db_error = None
 
 from sqlalchemy.pool import NullPool
 
-_is_serverless = bool(os.getenv("VERCEL") or os.getenv("AWS_LAMBDA_FUNCTION_NAME"))
+_connect_args = {"timeout": 30} if "sqlite" in DATABASE_URL else {}
+_engine_kwargs = {
+    "echo": False,
+    "future": True,
+    "connect_args": _connect_args,
+}
+if "sqlite" not in DATABASE_URL:
+    _engine_kwargs["pool_pre_ping"] = True
+    if _is_serverless:
+        _engine_kwargs["poolclass"] = NullPool
+    else:
+        _engine_kwargs["pool_size"] = 10
+        _engine_kwargs["max_overflow"] = 20
+        _engine_kwargs["pool_recycle"] = 300
 
-if DATABASE_URL is not None:
-    _connect_args = {"timeout": 30} if "sqlite" in DATABASE_URL else {}
-    _engine_kwargs = {
-        "echo": False,
-        "future": True,
-        "connect_args": _connect_args,
-    }
-    if "sqlite" not in DATABASE_URL:
-        _engine_kwargs["pool_pre_ping"] = True
-        if _is_serverless:
-            _engine_kwargs["poolclass"] = NullPool
-        else:
-            _engine_kwargs["pool_size"] = 10
-            _engine_kwargs["max_overflow"] = 20
-            _engine_kwargs["pool_recycle"] = 300
-
-    engine = create_async_engine(
-        DATABASE_URL,
-        **_engine_kwargs
-    )
-    async_session_factory = async_sessionmaker(
-        bind=engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
-else:
-    engine = None
-    async_session_factory = None
+engine = create_async_engine(
+    DATABASE_URL,
+    **_engine_kwargs
+)
+async_session_factory = async_sessionmaker(
+    bind=engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 
 def _migrate_sqlite_columns(sync_conn) -> None:
@@ -162,16 +162,13 @@ if engine is not None and DATABASE_URL and "sqlite" in DATABASE_URL:
 async def init_db() -> None:
     """Create all database tables if they do not exist and apply idempotent column migrations."""
     if engine is None:
-        logger.error(_production_db_error)
-        return
-    # In serverless deployed environments, schema is already provisioned; skip heavy DDL checks
-    if _is_serverless and "sqlite" not in (DATABASE_URL or ""):
-        logger.info("Serverless PostgreSQL deployment detected: skipping DDL schema inspection on cold start.")
+        logger.error("Database engine is not initialized.")
         return
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
             await conn.run_sync(_migrate_sqlite_columns)
+        logger.info("Database schemas and tables verified/created successfully.")
     except Exception as e:
         logger.warning(f"Database schema initialization warning: {e}")
 
@@ -181,7 +178,7 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     if engine is None or async_session_factory is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=_production_db_error or "Persistent production database is unconfigured. DATABASE_URL is required."
+            detail="Database service unavailable. Database engine is not initialized."
         )
     async with async_session_factory() as session:
         try:

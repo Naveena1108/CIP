@@ -584,9 +584,16 @@
             <form id="onboardingForm" onsubmit="handleEntityOnboarding(event)" class="space-y-4 text-xs">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                        <label class="block font-semibold cip-secondary mb-1">Entity Code / Short ID *</label>
-                        <input id="onboardEntityId" type="text" required placeholder="e.g. INST_MAIN_01"
-                            class="w-full px-3 py-2 font-mono cip-input">
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block font-semibold cip-secondary">Entity Code / ID *</label>
+                            <span class="text-[10px] text-zinc-400">Join existing or create</span>
+                        </div>
+                        <input id="onboardEntityId" type="text" list="onboardEntityIdDatalist" required placeholder="e.g. RVCE, PESU, INST_01"
+                            class="w-full px-3 py-2 font-mono cip-input" oninput="onOnboardEntityIdInput(this.value)">
+                        <datalist id="onboardEntityIdDatalist"></datalist>
+                        <div id="onboardEntityExistingHint" class="hidden mt-1 text-[11px] text-emerald-400 font-sans">
+                            ✓ Joining existing registered entity workspace
+                        </div>
                     </div>
                     <div class="md:col-span-2">
                         <label class="block font-semibold cip-secondary mb-1">Official Entity Name *</label>
@@ -3179,6 +3186,62 @@
             }
         }
 
+        let availableOnboardingEntities = [];
+
+        async function loadOnboardingEntities() {
+            try {
+                const res = await authFetch('/api/v1/auth/onboarding/entities');
+                if (res.ok) {
+                    availableOnboardingEntities = await res.json();
+                    const datalist = document.getElementById('onboardEntityIdDatalist');
+                    if (datalist) {
+                        datalist.innerHTML = availableOnboardingEntities.map(e => 
+                            `<option value="${e.id}">${e.name} (${e.city || e.state || 'Registered'})</option>`
+                        ).join('');
+                    }
+                }
+            } catch (err) {
+                console.error("Could not fetch onboarding entities:", err);
+            }
+        }
+
+        function onOnboardEntityIdInput(val) {
+            const trimmed = (val || '').trim();
+            const hint = document.getElementById('onboardEntityExistingHint');
+            const found = availableOnboardingEntities.find(e => e.id.toLowerCase() === trimmed.toLowerCase());
+            if (found) {
+                if (hint) {
+                    hint.innerText = `✓ Joining existing entity workspace: ${found.name}`;
+                    hint.classList.remove('hidden');
+                }
+                const nameInput = document.getElementById('onboardEntityName');
+                if (nameInput && (!nameInput.value || nameInput.value.trim() === trimmed)) {
+                    nameInput.value = found.name;
+                }
+                if (found.entity_category) {
+                    const catSelect = document.getElementById('onboardEntityType');
+                    if (catSelect) {
+                        catSelect.value = found.entity_category;
+                        onProgressiveCategoryChange();
+                    }
+                }
+                if (found.education_entity_type || found.education_level) {
+                    const eduSelect = document.getElementById('onboardEduLevel');
+                    if (eduSelect) {
+                        eduSelect.value = found.education_entity_type || found.education_level;
+                    }
+                }
+                if (found.ownership_governance) {
+                    const ownSelect = document.getElementById('onboardOwnership');
+                    if (ownSelect) {
+                        ownSelect.value = found.ownership_governance;
+                    }
+                }
+            } else {
+                if (hint) hint.classList.add('hidden');
+            }
+        }
+
         function openClassificationModal(isEditMode = false) {
             const modal = document.getElementById('onboardingModal');
             const title = document.getElementById('onboardModalTitle');
@@ -3187,6 +3250,8 @@
             const closeBtn = document.getElementById('onboardCloseBtn');
             const submitBtn = document.getElementById('onboardSubmitBtn');
             if (!modal) return;
+
+            loadOnboardingEntities();
 
             if (isEditMode) {
                 if (title) title.innerText = 'Edit Institution Classification & Profile';

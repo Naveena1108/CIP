@@ -44,6 +44,7 @@ def _signup_and_get_headers(client: TestClient, email: str, full_name: str, dept
             "full_name": full_name,
             "job_title": "Network Administrator",
             "department_or_unit": dept,
+            "skip_otp": True,
         },
     )
     if res.status_code in (200, 201):

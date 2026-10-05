@@ -35,6 +35,7 @@ class MemoryCategory(str, Enum):
     ANALYSIS = "analysis"
     INFERENCE = "inference"
     PREDICTION = "prediction"
+    INTERVENTION = "intervention"
     OUTCOME = "outcome"
     USER_FEEDBACK = "user_feedback"
     UNKNOWN = "unknown"

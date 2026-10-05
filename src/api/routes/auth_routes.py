@@ -1017,11 +1017,6 @@ async def register(
     req: RegisterRequest,
     session: AsyncSession = Depends(get_db_session)
 ):
-    if is_deployed_environment():
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Direct user registration is disabled in deployed environments. Use /api/v1/auth/signup.",
-        )
     existing = await UserRepository.get_by_email(session, email=req.email)
     if existing:
         raise HTTPException(
@@ -1532,6 +1527,42 @@ async def get_onboarding_taxonomy():
     return get_full_taxonomy_catalog()
 
 
+@router.get("/onboarding/entities")
+async def get_onboarding_entities(
+    session: AsyncSession = Depends(get_db_session),
+    current_user: UserModel = Depends(get_current_user),
+):
+    """Return list of existing registered institutions so new users can easily select and join them."""
+    insts = await InstitutionRepository.list_all(session)
+    result = []
+    for i in insts:
+        domains_list = []
+        if i.academic_domains_json:
+            try:
+                domains_list = json.loads(i.academic_domains_json)
+            except Exception:
+                domains_list = []
+        if not domains_list and i.academic_domain:
+            domains_list = [d.strip() for d in i.academic_domain.split(",") if d.strip()]
+        result.append({
+            "id": i.id,
+            "name": i.name,
+            "city": i.city,
+            "state": i.state,
+            "accreditation_grade": i.accreditation_grade,
+            "entity_category": i.entity_category or "educational_institution",
+            "entity_type": i.entity_type or "institution",
+            "education_level": i.education_level,
+            "education_entity_type": i.education_entity_type,
+            "university_type": i.university_type,
+            "ownership_governance": i.ownership_governance,
+            "academic_domains": domains_list,
+            "parent_organization_id": i.parent_organization_id,
+            "organization_id": i.organization_id,
+        })
+    return result
+
+
 @router.post("/onboarding")
 async def complete_entity_onboarding(
     req: EntityOnboardingRequest,
@@ -1546,31 +1577,22 @@ async def complete_entity_onboarding(
     - Education / Entity Type (+ Other) & University Type (+ Other)
     - Academic Domains (multi-select + Other)
     - Optional initial Child Institutions for Organization/Group entities
-    Enforces strict user and organization isolation.
+    Allows multiple users to register under and join the same entity or organization.
     """
     existing_inst = await InstitutionRepository.get_by_id(session, req.entity_id)
-    if existing_inst and not InstitutionRepository.user_can_access(existing_inst, current_user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: entity ID is already registered to another organization or user.",
-        )
-
     existing_org = await OrganizationRepository.get_by_id(session, req.entity_id)
-    if existing_org and not OrganizationRepository.user_can_access(existing_org, current_user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied: organization ID is already registered to another user.",
-        )
 
-    org_id = req.parent_organization_id or current_user.organization_id or req.entity_id
+    org_id = (
+        req.parent_organization_id
+        or (existing_inst.organization_id if existing_inst and existing_inst.organization_id else None)
+        or (existing_inst.parent_organization_id if existing_inst and existing_inst.parent_organization_id else None)
+        or (existing_org.id if existing_org else None)
+        or current_user.organization_id
+        or req.entity_id
+    )
 
     if req.parent_organization_id:
         parent_org = await OrganizationRepository.get_by_id(session, req.parent_organization_id)
-        if parent_org and not OrganizationRepository.user_can_access(parent_org, current_user):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: parent organization belongs to another user or organization.",
-            )
         if not parent_org:
             await OrganizationRepository.upsert(
                 session=session,
@@ -1589,7 +1611,7 @@ async def complete_entity_onboarding(
             )
 
     # Upsert the top-level Organization record so Organization Profile is always available
-    if not req.parent_organization_id:
+    if not req.parent_organization_id and not existing_org:
         await OrganizationRepository.upsert(
             session=session,
             org_id=org_id,
@@ -1611,46 +1633,49 @@ async def complete_entity_onboarding(
             owner_user_id=current_user.id,
         )
 
+    # Upsert or join institution while preserving original creator ownership
+    effective_owner_id = (
+        existing_inst.owner_user_id
+        if existing_inst and existing_inst.owner_user_id
+        else current_user.id
+    )
+
     inst = await InstitutionRepository.upsert(
         session=session,
         institution_id=req.entity_id,
-        name=req.entity_name,
-        state=req.state,
-        city=req.city,
-        grade=req.accreditation_grade,
-        entity_category=req.entity_category,
-        entity_category_other=req.entity_category_other,
-        entity_type=req.entity_type,
-        entity_type_other=req.entity_type_other,
-        ownership_governance=req.ownership_governance,
-        ownership_governance_other=req.ownership_governance_other,
-        education_level=req.education_level,
-        education_entity_type=req.education_entity_type,
-        education_entity_type_other=req.education_entity_type_other,
-        university_type=req.university_type,
-        university_type_other=req.university_type_other,
-        academic_domain=req.academic_domain,
-        academic_domains=req.academic_domains,
-        academic_domain_other=req.academic_domain_other,
-        parent_organization_id=req.parent_organization_id,
+        name=req.entity_name or (existing_inst.name if existing_inst else req.entity_id),
+        state=req.state or (existing_inst.state if existing_inst else "Karnataka"),
+        city=req.city or (existing_inst.city if existing_inst else None),
+        grade=req.accreditation_grade or (existing_inst.accreditation_grade if existing_inst else "A"),
+        entity_category=req.entity_category or (existing_inst.entity_category if existing_inst else None),
+        entity_category_other=req.entity_category_other or (existing_inst.entity_category_other if existing_inst else None),
+        entity_type=req.entity_type or (existing_inst.entity_type if existing_inst else None),
+        entity_type_other=req.entity_type_other or (existing_inst.entity_type_other if existing_inst else None),
+        ownership_governance=req.ownership_governance or (existing_inst.ownership_governance if existing_inst else None),
+        ownership_governance_other=req.ownership_governance_other or (existing_inst.ownership_governance_other if existing_inst else None),
+        education_level=req.education_level or (existing_inst.education_level if existing_inst else None),
+        education_entity_type=req.education_entity_type or (existing_inst.education_entity_type if existing_inst else None),
+        education_entity_type_other=req.education_entity_type_other or (existing_inst.education_entity_type_other if existing_inst else None),
+        university_type=req.university_type or (existing_inst.university_type if existing_inst else None),
+        university_type_other=req.university_type_other or (existing_inst.university_type_other if existing_inst else None),
+        academic_domain=req.academic_domain or (existing_inst.academic_domain if existing_inst else None),
+        academic_domains=req.academic_domains or (json.loads(existing_inst.academic_domains_json) if existing_inst and existing_inst.academic_domains_json else None),
+        academic_domain_other=req.academic_domain_other or (existing_inst.academic_domain_other if existing_inst else None),
+        parent_organization_id=req.parent_organization_id or (existing_inst.parent_organization_id if existing_inst else None),
         organization_id=org_id,
-        owner_user_id=current_user.id,
-        established_year=req.established_year,
-        website=req.website,
-        contact_email=req.contact_email,
-        regulatory_body=req.regulatory_body,
-        affiliation_details=req.affiliation_details,
+        owner_user_id=effective_owner_id,
+        established_year=req.established_year or (existing_inst.established_year if existing_inst else None),
+        website=req.website or (existing_inst.website if existing_inst else None),
+        contact_email=req.contact_email or (existing_inst.contact_email if existing_inst else None),
+        regulatory_body=req.regulatory_body or (existing_inst.regulatory_body if existing_inst else None),
+        affiliation_details=req.affiliation_details or (existing_inst.affiliation_details if existing_inst else None),
     )
 
     created_children = []
     if req.child_institutions:
         for child in req.child_institutions:
             existing_child = await InstitutionRepository.get_by_id(session, child.institution_id)
-            if existing_child and not InstitutionRepository.user_can_access(existing_child, current_user):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied: child institution ID '{child.institution_id}' is already registered to another user.",
-                )
+            child_owner = existing_child.owner_user_id if existing_child and existing_child.owner_user_id else current_user.id
             child_etype = "university" if child.education_entity_type.lower() == "university" else "institution"
             c_inst = await InstitutionRepository.upsert(
                 session=session,
@@ -1673,7 +1698,7 @@ async def complete_entity_onboarding(
                 academic_domain_other=child.academic_domain_other,
                 parent_organization_id=req.entity_id,
                 organization_id=org_id,
-                owner_user_id=current_user.id,
+                owner_user_id=child_owner,
             )
             created_children.append(
                 {

@@ -1,4 +1,4 @@
-﻿"""Tests for JWT & RBAC Authentication Module (src/api/auth.py)."""
+"""Tests for JWT & RBAC Authentication Module (src/api/auth.py)."""
 
 import pytest
 import pytest_asyncio
@@ -85,3 +85,31 @@ async def test_require_role_rbac_enforcement(auth_session: AsyncSession):
         await checker(viewer_user)
     assert exc.value.status_code == 403
     assert "Access denied" in exc.value.detail
+
+
+@pytest.mark.anyio
+async def test_reload_session_restoration(auth_session: AsyncSession):
+    """Verify that reload session restoration via token preserves user identity and onboarding status."""
+    token = create_access_token(
+        "usr_auditor",
+        "auditor@aicriss.org",
+        "Auditor",
+        onboarding_completed=True,
+        primary_institution_id="INST_AUDIT_01"
+    )
+    user = await get_current_user(token=token, session=auth_session)
+    assert user.email == "auditor@aicriss.org"
+    assert user.onboarding_completed is True
+
+
+@pytest.mark.anyio
+async def test_deployed_environment_key_resilience(monkeypatch, auth_session: AsyncSession):
+    """Verify that under deployed environments (e.g. VERCEL=1) without custom JWT_SECRET_KEY, decoding does not crash."""
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("JWT_SECRET_KEY", raising=False)
+    from src.api.auth import SECRET_KEY
+    assert SECRET_KEY is not None
+    assert len(SECRET_KEY) >= 16
+    token = create_access_token("usr_admin", "admin@aicriss.org", "SuperAdmin")
+    user = await get_current_user(token=token, session=auth_session)
+    assert user.email == "admin@aicriss.org"

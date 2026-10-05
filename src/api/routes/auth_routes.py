@@ -588,6 +588,7 @@ async def login(
         email=user.email,
         auth_provider=user.auth_provider or "local",
         onboarding_required=not onboarding_done,
+        onboarding_completed=onboarding_done,
         primary_institution_id=user.primary_institution_id,
         organization_id=user.organization_id,
     )
@@ -663,6 +664,7 @@ async def login_json(
             email=user.email,
             auth_provider=user.auth_provider or "local",
             onboarding_required=not onboarding_done,
+            onboarding_completed=onboarding_done,
             primary_institution_id=user.primary_institution_id,
             organization_id=user.organization_id,
         )
@@ -693,6 +695,7 @@ async def login_json(
             email=user.email,
             auth_provider=user.auth_provider or "local",
             onboarding_required=not onboarding_done,
+            onboarding_completed=onboarding_done,
             primary_institution_id=user.primary_institution_id,
             organization_id=user.organization_id,
         )
@@ -796,6 +799,7 @@ async def signup(
             email=user.email,
             auth_provider="local",
             onboarding_required=True,
+            onboarding_completed=False,
             primary_institution_id=user.primary_institution_id,
             organization_id=user.organization_id,
         )
@@ -925,6 +929,7 @@ async def verify_otp(
         email=user.email,
         auth_provider=user.auth_provider or "local",
         onboarding_required=not onboarding_done,
+        onboarding_completed=onboarding_done,
         primary_institution_id=user.primary_institution_id,
         organization_id=user.organization_id,
     )
@@ -1417,6 +1422,7 @@ async def google_oauth_callback(
         email=user.email,
         auth_provider=user.auth_provider or "google",
         onboarding_required=onboarding_required,
+        onboarding_completed=bool(user.onboarding_completed),
         primary_institution_id=user.primary_institution_id,
         organization_id=user.organization_id,
     )
@@ -1516,6 +1522,7 @@ async def google_oauth_token_exchange(
         email=user.email,
         auth_provider=user.auth_provider or "google",
         onboarding_required=onboarding_required,
+        onboarding_completed=bool(user.onboarding_completed),
         primary_institution_id=user.primary_institution_id,
         organization_id=user.organization_id,
     )

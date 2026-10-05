@@ -421,7 +421,7 @@
 <body class="min-h-screen flex flex-col">
 
     <!-- Authentication Modal: Sign In / Sign Up / Password Recovery (Never requires role selection) -->
-    <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#140E12]/85 backdrop-blur-xl">
+    <div id="loginModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#140E12]/85 backdrop-blur-xl">
         <div class="cip-glass-dark text-white p-7 w-full max-w-md shadow-2xl rounded-2xl space-y-4 max-h-[94vh] overflow-y-auto border border-white/10">
             <!-- Screen 1: Credentials & Federated OAuth -->
             <div id="authCredentialsScreen" class="space-y-4">
@@ -3400,14 +3400,21 @@
                 if (data.access_token) {
                     persistJwt(data.access_token);
                 }
+                const activeEmail = (data.user && data.user.email) || localStorage.getItem('aicriss_email') || '';
                 try { localStorage.setItem('aicriss_onboarding_required', 'false'); } catch (e) {}
                 try { sessionStorage.setItem('aicriss_onboarding_required', 'false'); } catch (e) {}
                 try { localStorage.setItem('aicriss_onboarding_completed', 'true'); } catch (e) {}
                 try { sessionStorage.setItem('aicriss_onboarding_completed', 'true'); } catch (e) {}
+                if (activeEmail) {
+                    try { localStorage.setItem(`aicriss_onboarding_completed_${activeEmail}`, 'true'); } catch (e) {}
+                    try { sessionStorage.setItem(`aicriss_onboarding_completed_${activeEmail}`, 'true'); } catch (e) {}
+                }
                 if (data.entity && data.entity.id) {
                     currentInstitutionId = data.entity.id;
                     try { localStorage.setItem('aicriss_primary_inst', currentInstitutionId); } catch (e) {}
                     try { sessionStorage.setItem('aicriss_primary_inst', currentInstitutionId); } catch (e) {}
+                    try { localStorage.setItem('cip_selected_institution', currentInstitutionId); } catch (e) {}
+                    try { sessionStorage.setItem('cip_selected_institution', currentInstitutionId); } catch (e) {}
                     adaptNavigationToEntityAndPermissions(data.entity.entity_type || entityCategory, currentUserRole);
                 }
                 closeClassificationModal();
@@ -4253,6 +4260,19 @@
                         if (userNameEl && userData.email) userNameEl.innerText = (userData.full_name || userData.email).split('@')[0];
                         if (userRoleEl && userData.role) userRoleEl.innerText = userData.role;
                         return cached;
+                    } else if (res.status === 401) {
+                        // Truly revoked or expired on server
+                        authToken = null;
+                        window.__cipAuthToken = null;
+                        try { localStorage.removeItem('aicriss_jwt'); } catch (e) {}
+                        try { sessionStorage.removeItem('aicriss_jwt'); } catch (e) {}
+                    } else {
+                        // Server 500/502/cold start: preserve cached token and session
+                        authToken = cached;
+                        window.__cipAuthToken = cached;
+                        document.getElementById('loginModal').classList.add('hidden');
+                        document.getElementById('logoutBtn').classList.remove('hidden');
+                        return cached;
                     }
                 } catch (e) {
                     console.warn('Session check network error, falling back to cached session:', e);
@@ -4261,29 +4281,24 @@
                     window.__cipAuthToken = cached;
                     document.getElementById('loginModal').classList.add('hidden');
                     document.getElementById('logoutBtn').classList.remove('hidden');
-                    const userNameEl = document.getElementById('sidebarUserName');
-                    if (userNameEl) userNameEl.innerText = 'Officer';
                     return cached;
                 }
-                // Revoked or expired on server
-                authToken = null;
-                window.__cipAuthToken = null;
-                try { localStorage.removeItem('aicriss_jwt'); } catch (e) {}
-                try { sessionStorage.removeItem('aicriss_jwt'); } catch (e) {}
             }
-            document.getElementById('onboardingModal').classList.add('hidden');
-            document.getElementById('loginModal').classList.remove('hidden');
+            if (!getStoredJwt()) {
+                document.getElementById('onboardingModal').classList.add('hidden');
+                document.getElementById('loginModal').classList.remove('hidden');
+            }
             return null;
         }
 
         async function authFetch(url, options = {}) {
-            const token = getStoredJwt() || await ensureAuthenticatedSession();
+            const token = getStoredJwt();
             const headers = Object.assign({}, options.headers || {});
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
             const response = await fetch(url, Object.assign({}, options, { headers }));
-            if (response.status === 401) {
+            if (response.status === 401 && (url.includes('/api/v1/auth/me') || url.includes('/api/v1/auth/session'))) {
                 authToken = null;
                 window.__cipAuthToken = null;
                 try { sessionStorage.removeItem('aicriss_jwt'); } catch (e) {}
@@ -6335,42 +6350,87 @@
         window.addEventListener('DOMContentLoaded', async () => {
             initThemeSystem();
             initCharts();
-            await initProgressiveTaxonomy();
-            await loadGoogleOAuthConfig();
-            const handledOAuth = await processOAuthCallbackFromUrl();
-            if (handledOAuth) return;
 
             const cachedToken = getStoredJwt();
-            if (cachedToken) {
-                persistJwt(cachedToken);
-                try {
-                    const meRes = await authFetch('/api/v1/auth/me');
-                    if (meRes.ok) {
-                        const me = await meRes.json();
-                        await establishUiSession({
-                            access_token: cachedToken,
-                            role: me.role,
-                            email: me.email,
-                            onboarding_required: me.onboarding_required,
-                            onboarding_completed: me.onboarding_completed,
-                            primary_institution_id: me.primary_institution_id
-                        }, me.email);
-                        return;
-                    } else {
-                        try { localStorage.removeItem('aicriss_jwt'); } catch (e) {}
-                        try { sessionStorage.removeItem('aicriss_jwt'); } catch (e) {}
-                        authToken = null;
-                        document.getElementById('onboardingModal').classList.add('hidden');
-                        document.getElementById('loginModal').classList.remove('hidden');
-                    }
-                } catch (e) {
-                    console.error(e);
-                    document.getElementById('onboardingModal').classList.add('hidden');
-                    document.getElementById('loginModal').classList.remove('hidden');
-                }
-            } else {
+            if (!cachedToken) {
+                // Unauthenticated visitor: display login modal
                 document.getElementById('onboardingModal').classList.add('hidden');
                 document.getElementById('loginModal').classList.remove('hidden');
+                try { await initProgressiveTaxonomy(); } catch (e) {}
+                try { await loadGoogleOAuthConfig(); } catch (e) {}
+                try { await processOAuthCallbackFromUrl(); } catch (e) {}
+                return;
+            }
+
+            // Authenticated user: immediately guarantee loginModal stays hidden so reload never signs out or flashes
+            document.getElementById('loginModal').classList.add('hidden');
+            persistJwt(cachedToken);
+
+            try {
+                try { await initProgressiveTaxonomy(); } catch (e) {}
+                try { await loadGoogleOAuthConfig(); } catch (e) {}
+                const handledOAuth = await processOAuthCallbackFromUrl();
+                if (handledOAuth) return;
+
+                const meRes = await authFetch('/api/v1/auth/me');
+                if (meRes.ok) {
+                    const me = await meRes.json();
+                    await establishUiSession({
+                        access_token: cachedToken,
+                        role: me.role,
+                        email: me.email,
+                        onboarding_required: me.onboarding_required,
+                        onboarding_completed: me.onboarding_completed,
+                        primary_institution_id: me.primary_institution_id
+                    }, me.email);
+                    return;
+                } else if (meRes.status === 401) {
+                    // Token is truly expired or revoked on server
+                    try { localStorage.removeItem('aicriss_jwt'); } catch (e) {}
+                    try { sessionStorage.removeItem('aicriss_jwt'); } catch (e) {}
+                    authToken = null;
+                    window.__cipAuthToken = null;
+                    document.getElementById('logoutBtn').classList.add('hidden');
+                    document.getElementById('onboardingModal').classList.add('hidden');
+                    document.getElementById('loginModal').classList.remove('hidden');
+                    return;
+                } else {
+                    // Server error (500/502/cold-start): do NOT wipe credentials or sign out!
+                    console.warn(`Server returned status ${meRes.status} for /auth/me; restoring session from local cache.`);
+                    const cachedEmail = localStorage.getItem('aicriss_email') || 'officer@institution.org';
+                    const cachedRole = localStorage.getItem('aicriss_role') || 'Auditor';
+                    const cachedCompleted = localStorage.getItem('aicriss_onboarding_completed') === 'true'
+                        || localStorage.getItem(`aicriss_onboarding_completed_${cachedEmail}`) === 'true';
+                    const cachedInst = localStorage.getItem('aicriss_primary_inst') || localStorage.getItem('cip_selected_institution') || '';
+                    await establishUiSession({
+                        access_token: cachedToken,
+                        role: cachedRole,
+                        email: cachedEmail,
+                        onboarding_required: !cachedCompleted,
+                        onboarding_completed: cachedCompleted,
+                        primary_institution_id: cachedInst
+                    }, cachedEmail);
+                }
+            } catch (e) {
+                console.warn('Session restoration error on reload:', e);
+                // On glitch, fall back to cached session without booting user to login screen
+                const cachedEmail = localStorage.getItem('aicriss_email') || 'officer@institution.org';
+                const cachedRole = localStorage.getItem('aicriss_role') || 'Auditor';
+                const cachedCompleted = localStorage.getItem('aicriss_onboarding_completed') === 'true'
+                    || localStorage.getItem(`aicriss_onboarding_completed_${cachedEmail}`) === 'true';
+                const cachedInst = localStorage.getItem('aicriss_primary_inst') || localStorage.getItem('cip_selected_institution') || '';
+                try {
+                    await establishUiSession({
+                        access_token: cachedToken,
+                        role: cachedRole,
+                        email: cachedEmail,
+                        onboarding_required: !cachedCompleted,
+                        onboarding_completed: cachedCompleted,
+                        primary_institution_id: cachedInst
+                    }, cachedEmail);
+                } catch (fallbackErr) {
+                    console.error('Fallback session recovery error:', fallbackErr);
+                }
             }
         });
 

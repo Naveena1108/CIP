@@ -632,6 +632,17 @@ class SignalSnapshotRepository:
         session: AsyncSession,
         signals: List[AdmissionsSignal | PlacementsSignal | CETRankingSignal]
     ) -> int:
+        if not signals:
+            return 0
+
+        inst_ids = {s.institution_id for s in signals if hasattr(s, "institution_id") and s.institution_id}
+        existing_lookup: Dict[tuple, SignalSnapshotModel] = {}
+        if inst_ids:
+            stmt = select(SignalSnapshotModel).where(SignalSnapshotModel.institution_id.in_(inst_ids))
+            existing_rows = (await session.execute(stmt)).scalars().all()
+            for r in existing_rows:
+                existing_lookup[(r.institution_id, r.academic_year, r.department, r.signal_type)] = r
+
         count = 0
         for s in signals:
             sig_type = "unknown"
@@ -648,13 +659,7 @@ class SignalSnapshotRepository:
                 continue
 
             prov_id = s.provenance.source_id if s.provenance else "UNKNOWN"
-            stmt = select(SignalSnapshotModel).where(
-                SignalSnapshotModel.institution_id == s.institution_id,
-                SignalSnapshotModel.academic_year == year,
-                SignalSnapshotModel.department == s.department,
-                SignalSnapshotModel.signal_type == sig_type,
-            )
-            existing = (await session.execute(stmt)).scalar_one_or_none()
+            existing = existing_lookup.get((s.institution_id, year, s.department, sig_type))
             if existing:
                 existing.payload_json = s.model_dump_json()
                 existing.provenance_id = prov_id
@@ -668,6 +673,7 @@ class SignalSnapshotRepository:
                     provenance_id=prov_id
                 )
                 session.add(snapshot)
+                existing_lookup[(s.institution_id, year, s.department, sig_type)] = snapshot
             count += 1
         await session.flush()
         return count

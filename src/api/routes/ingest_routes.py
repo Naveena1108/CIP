@@ -75,7 +75,7 @@ class IngestionSummary(BaseModel):
     cet_ranking_count: int
 
 
-MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB upload safety boundary
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB upload safety boundary
 
 
 async def _handle_universal_upload(
@@ -92,7 +92,7 @@ async def _handle_universal_upload(
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Uploaded file exceeds the 15 MB size limit.",
+            detail="Uploaded file exceeds the 50 MB size limit.",
         )
 
     content_hash = hashlib.sha256(content).hexdigest()
@@ -585,21 +585,35 @@ async def list_institution_datasets(
     records = await IngestionRecordRepository.list_by_institution(session, institution_id)
     datasets = []
     for idx, r in enumerate(records):
-        fmt = getattr(r, "format_type", None) or getattr(r, "detected_format", None) or "UNKNOWN"
-        sigs = getattr(r, "total_signals_discovered", None) or getattr(r, "total_signals_ingested", None) or len(getattr(r, "discovered_signals", [])) or 0
+        fmt = getattr(r, "detected_format", None) or getattr(r, "format_type", None) or "UNKNOWN"
+        sigs = getattr(r, "total_signals_ingested", None) or getattr(r, "total_signals_discovered", None) or len(getattr(r, "discovered_signals", [])) or 0
         doms = getattr(r, "domains_discovered", None)
         if not doms and hasattr(r, "detected_domains") and r.detected_domains:
             doms = list(r.detected_domains.keys())
         st = getattr(r, "status", None) or getattr(r, "processing_status", None) or "SUCCESS"
         is_active = (r.ingestion_id == active_dataset_id) if active_dataset_id else (idx == 0)
+
+        # Extract academic periods from discovered signals if available
+        discovered = getattr(r, "discovered_signals", []) or []
+        periods = sorted(list({str(s.context.academic_year or s.context.time_period) for s in discovered if s.context and (s.context.academic_year or s.context.time_period)}))
+
+        ingested_at = getattr(r, "ingested_at", None) or getattr(r, "created_at", None)
+        ingested_at_str = ingested_at.isoformat() if hasattr(ingested_at, "isoformat") else str(ingested_at or "")
+
         datasets.append({
             "ingestion_id": r.ingestion_id,
             "filename": r.filename,
+            "dataset_name": r.filename,
             "format_type": fmt,
+            "ingestion_type": fmt,
             "total_signals_discovered": sigs,
+            "total_signals": sigs,
             "domains": doms or [],
             "status": st,
             "is_active": is_active,
+            "ingested_at": ingested_at_str,
+            "created_at": ingested_at_str,
+            "academic_periods": periods,
         })
     return datasets
 
@@ -758,7 +772,7 @@ async def ingest_excel_file(
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Uploaded Excel file exceeds the 15 MB size limit"
+            detail="Uploaded Excel file exceeds the 50 MB size limit"
         )
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:

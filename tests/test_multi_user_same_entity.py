@@ -159,3 +159,29 @@ async def test_multiple_users_can_onboard_and_use_same_entity(multi_user_client:
     assert inst_resp_u1.status_code == 200
     inst_ids_u1 = [inst["id"] for inst in inst_resp_u1.json()]
     assert "RVCE" in inst_ids_u1
+
+    # 8. Upload a dataset as User 1 and verify both User 1 and User 2 can access dataset metadata
+    csv_content = b"department,academic_year,sanctioned_intake,actual_admissions\nCSE,2023,180,180\nECE,2023,180,175\n"
+    upload_resp = await multi_user_client.post(
+        "/api/v1/ingest/upload",
+        headers=u1_active_headers,
+        data={"institution_id": "RVCE"},
+        files={"file": ("rvce_admissions.csv", csv_content, "text/csv")},
+    )
+    assert upload_resp.status_code == 200, upload_resp.text
+    upload_json = upload_resp.json()
+    assert upload_json["status"] == "SUCCESS"
+
+    # User 2 lists datasets for RVCE
+    ds_resp_u2 = await multi_user_client.get("/api/v1/ingest/institutions/RVCE/datasets", headers=u2_active_headers)
+    assert ds_resp_u2.status_code == 200, ds_resp_u2.text
+    datasets_u2 = ds_resp_u2.json()
+    assert len(datasets_u2) >= 1
+    ds = datasets_u2[0]
+    assert ds["filename"] == "rvce_admissions.csv"
+    assert ds["dataset_name"] == "rvce_admissions.csv"
+    assert ds["format_type"] == "CSV"
+    assert ds["ingestion_type"] == "CSV"
+    assert ds["total_signals"] > 0
+    assert ds["ingested_at"]
+    assert "2023" in ds["academic_periods"]

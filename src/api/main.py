@@ -107,10 +107,11 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Mount Frontend Dashboard if static directory exists
+# Mount Frontend Dashboard and Static Assets if static directory exists
 static_dir = os.path.join(os.path.dirname(__file__), "..", "frontend", "static")
 if os.path.exists(static_dir):
     app.mount("/dashboard", StaticFiles(directory=static_dir, html=True), name="dashboard")
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include Core Routers
 app.include_router(auth_router, prefix="/api/v1")

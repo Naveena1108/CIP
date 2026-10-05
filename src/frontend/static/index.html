@@ -74,11 +74,29 @@
             --cip-chart-text: #C98291;
         }
 
+        html, body {
+            max-width: 100vw;
+            overflow-x: hidden;
+        }
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background-color: var(--cip-bg);
             color: var(--cip-text);
             margin: 0;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        /* Prevent mobile browsers from auto-zooming in on input focus */
+        @media screen and (max-width: 768px) {
+            input, select, textarea {
+                font-size: 16px !important;
+            }
+            .otp-digit-box {
+                font-size: 1.25rem !important;
+                width: 2.25rem !important;
+                height: 2.75rem !important;
+            }
         }
 
         .font-mono {
@@ -713,6 +731,9 @@
         </div>
     </div>
 
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div id="mobileSidebarBackdrop" class="hidden lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity" onclick="closeMobileSidebar()"></div>
+
     <!-- One UI Floating Adaptive Sidebar (Desktop & Tablet) -->
     <aside id="mainSidebar" class="cip-floating-sidebar fixed left-4 top-4 bottom-4 z-40 hidden lg:flex flex-col justify-between w-[256px] p-4 select-none transition-all duration-300">
         <div class="space-y-4">
@@ -835,7 +856,7 @@
     </aside>
 
     <!-- Main Workspace Container -->
-    <div class="flex-1 lg:pl-[280px] flex flex-col min-h-screen">
+    <div class="flex-1 lg:pl-[280px] flex flex-col min-h-screen pb-28 lg:pb-8">
 
         <!-- Floating One UI Top Context Bar -->
         <header class="sticky top-4 z-30 mb-4 mx-auto w-full max-w-[1440px] px-3 sm:px-4">
@@ -902,8 +923,8 @@
             </div>
         </header>
 
-        <!-- Floating Quick Intelligence Navigation Pill Bar -->
-        <div class="w-full flex justify-center px-4 mb-4 pointer-events-none sticky top-20 z-20">
+        <!-- Floating Quick Intelligence Navigation Pill Bar (Desktop & Large Tablet only - Mobile uses bottom nav) -->
+        <div class="hidden lg:flex w-full justify-center px-4 mb-4 pointer-events-none sticky top-20 z-20">
             <nav id="floatingPillNav" class="floating-glass-nav pointer-events-auto flex items-center overflow-x-auto max-w-full" aria-label="Quick Navigation">
                 <button type="button" id="float-nav-overview" onclick="navigateWorkflow('overview')" class="nav-pill active">Overview</button>
                 <button type="button" id="float-nav-insights" onclick="navigateWorkflow('insights')" class="nav-pill">What We Found</button>
@@ -1025,18 +1046,18 @@
                             </div>
 
                             <!-- 3 Simple Human Numbers (Section 8 & 34) -->
-                            <div class="grid grid-cols-3 gap-3 shrink-0">
-                                <div class="cip-subcard p-3 sm:p-4 rounded-2xl text-center min-w-[90px]">
+                            <div class="grid grid-cols-3 gap-2 sm:gap-3 shrink-0">
+                                <div class="cip-subcard p-2.5 sm:p-4 rounded-xl sm:rounded-2xl text-center">
                                     <div class="text-[10px] font-semibold uppercase tracking-wider cip-muted">Important Changes</div>
-                                    <div id="oneUiMetricChanged" class="mt-1 text-2xl font-bold font-mono">0</div>
+                                    <div id="oneUiMetricChanged" class="mt-1 text-xl sm:text-2xl font-bold font-mono">0</div>
                                 </div>
-                                <div class="cip-subcard p-3 sm:p-4 rounded-2xl text-center min-w-[90px]">
+                                <div class="cip-subcard p-2.5 sm:p-4 rounded-xl sm:rounded-2xl text-center">
                                     <div class="text-[10px] font-semibold uppercase tracking-wider cip-muted">Areas to Watch</div>
-                                    <div id="oneUiMetricFindings" class="mt-1 text-2xl font-bold font-mono">0</div>
+                                    <div id="oneUiMetricFindings" class="mt-1 text-xl sm:text-2xl font-bold font-mono">0</div>
                                 </div>
-                                <div class="cip-subcard p-3 sm:p-4 rounded-2xl text-center min-w-[90px]">
+                                <div class="cip-subcard p-2.5 sm:p-4 rounded-xl sm:rounded-2xl text-center">
                                     <div class="text-[10px] font-semibold uppercase tracking-wider cip-muted">Supporting Sources</div>
-                                    <div id="oneUiMetricEvidence" class="mt-1 text-2xl font-bold font-mono">0</div>
+                                    <div id="oneUiMetricEvidence" class="mt-1 text-xl sm:text-2xl font-bold font-mono">0</div>
                                 </div>
                             </div>
                         </div>
@@ -1049,7 +1070,7 @@
                                     See what may happen →
                                 </button>
                             </div>
-                            <div class="grid grid-cols-4 gap-3">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 <div>
                                     <div class="flex justify-between text-xs mb-1">
                                         <span class="cip-muted">Current</span>
@@ -1402,17 +1423,17 @@
                 </div>
 
                 <!-- Add Data Card (Rule 27) -->
-                <div class="cip-card p-6 space-y-4">
+                <div class="cip-card p-4 sm:p-6 space-y-4">
                     <div>
                         <h3 class="text-base font-bold">Add institutional files</h3>
-                        <p class="text-xs cip-muted mt-0.5">Upload college spreadsheets, reports, or accreditation files (Excel, CSV, PDF, JSON).</p>
+                        <p class="text-xs cip-muted mt-0.5">Upload college spreadsheets, reports, or accreditation files (Excel, CSV, PDF, JSON, DOCX).</p>
                     </div>
                     <div>
-                        <label for="universalUploadInput" id="dataViewAddBtn" class="cursor-pointer inline-flex items-center gap-2 py-3 px-6 cip-btn-primary font-bold text-xs rounded-xl">
+                        <label for="dataSectionUploadInput" id="dataViewAddBtn" class="cursor-pointer inline-flex items-center gap-2 py-3 px-6 cip-btn-primary font-bold text-xs rounded-xl shadow-sm">
                             <span>+</span>
                             <span>Add data</span>
                         </label>
-                        <input id="universalUploadInput" type="file" class="hidden" accept=".xlsx,.xls,.csv,.pdf,.json" onchange="handleUniversalDataUpload(this.files[0])">
+                        <input id="dataSectionUploadInput" type="file" class="hidden" accept=".xlsx,.xls,.xlsm,.csv,.tsv,.pdf,.docx,.pptx,.txt,.md,.json" onchange="handleUniversalDataUpload(this)">
                     </div>
                 </div>
 
@@ -1423,20 +1444,26 @@
                 </div>
 
                 <!-- Uploaded Datasets Table -->
-                <div class="cip-card p-6 space-y-4">
-                    <h3 class="text-base font-bold">Your uploaded files</h3>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-xs text-left">
+                <div class="cip-card p-4 sm:p-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-bold">Your uploaded files</h3>
+                        <span class="text-[11px] cip-muted font-mono">Horizontal scroll on mobile</span>
+                    </div>
+                    <div class="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+                        <table class="w-full text-xs text-left min-w-[680px]">
                             <thead class="border-b uppercase text-[10px] cip-muted" style="border-color: var(--cip-border);">
                                 <tr>
-                                    <th class="py-2.5 px-3">File Name</th>
+                                    <th class="py-2.5 px-3">Dataset / File</th>
+                                    <th class="py-2.5 px-3">Format</th>
                                     <th class="py-2.5 px-3">Date Added</th>
+                                    <th class="py-2.5 px-3">Coverage / Periods</th>
+                                    <th class="py-2.5 px-3">Signals</th>
                                     <th class="py-2.5 px-3">Status</th>
                                     <th class="py-2.5 px-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="uploadedDatasetsTableBody" class="divide-y divide-[#EEE9E6] dark:divide-[#3D2D37]">
-                                <tr><td colspan="4" class="py-4 text-center cip-muted">No files uploaded yet.</td></tr>
+                                <tr><td colspan="7" class="py-4 text-center cip-muted">No files uploaded yet.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -2505,6 +2532,9 @@
                     revealInsightEvidence(0);
                 }
             }
+            if (target === 'data') {
+                loadInstitutionDatasets(currentInstitutionId);
+            }
             if (target === 'profile') {
                 loadAllProfileData();
             }
@@ -2514,6 +2544,7 @@
             if (target === 'osint') {
                 loadOSINTDashboard();
             }
+            closeMobileSidebar();
             if (temporalChart) temporalChart.resize();
             if (riskComparisonChart) riskComparisonChart.resize();
         }
@@ -2621,10 +2652,27 @@
 
         function toggleMobileSidebar() {
             const sb = document.getElementById('mainSidebar');
+            const backdrop = document.getElementById('mobileSidebarBackdrop');
             if (sb) {
-                sb.classList.toggle('hidden');
-                sb.classList.toggle('flex');
+                const isHidden = sb.classList.contains('hidden');
+                if (isHidden) {
+                    sb.classList.remove('hidden');
+                    sb.classList.add('flex');
+                    if (backdrop) backdrop.classList.remove('hidden');
+                } else {
+                    closeMobileSidebar();
+                }
             }
+        }
+
+        function closeMobileSidebar() {
+            const sb = document.getElementById('mainSidebar');
+            const backdrop = document.getElementById('mobileSidebarBackdrop');
+            if (sb) {
+                sb.classList.add('hidden');
+                sb.classList.remove('flex');
+            }
+            if (backdrop) backdrop.classList.add('hidden');
         }
 
         function adaptNavigationToEntityAndPermissions(entityType, role) {
@@ -4247,8 +4295,15 @@
             return response;
         }
 
-        async function handleUniversalDataUpload(inputEl) {
-            const file = inputEl.files && inputEl.files[0];
+        async function handleUniversalDataUpload(inputElOrFile) {
+            let file = null;
+            let inputEl = null;
+            if (inputElOrFile instanceof File) {
+                file = inputElOrFile;
+            } else if (inputElOrFile && inputElOrFile.files && inputElOrFile.files.length > 0) {
+                file = inputElOrFile.files[0];
+                inputEl = inputElOrFile;
+            }
             if (!file) return;
             setBanner(`Uploading institutional data '${file.name}' via CIP Universal Ingestion Pipeline...`);
             try {
@@ -4290,12 +4345,15 @@
                 );
                 await refreshAccessibleInstitutions();
                 await triggerEvaluation(currentInstitutionId);
+                await loadInstitutionDatasets(currentInstitutionId);
                 await updateSimulation();
             } catch (err) {
                 console.error(err);
                 setBanner(`Upload error: ${err.message}`);
             } finally {
-                inputEl.value = '';
+                if (inputEl) {
+                    try { inputEl.value = ''; } catch (e) {}
+                }
             }
         }
 
@@ -5852,6 +5910,16 @@
             }
         }
 
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         async function loadInstitutionDatasets(instId) {
             const targetId = instId || currentInstitutionId;
             const tbody = document.getElementById('uploadedDatasetsTableBody');
@@ -5864,32 +5932,38 @@
                 }
                 const datasets = await res.json();
                 if (!datasets.length) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="py-3 px-3 cip-muted">No uploaded datasets recorded for ${targetId}. Use "Add Data" above to upload institutional files.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="7" class="py-4 px-3 text-center cip-muted">No uploaded datasets recorded for ${escapeHtml(targetId)}. Use "Add Data" above to upload institutional files.</td></tr>`;
                     return;
                 }
                 tbody.innerHTML = datasets.map(d => {
                     const isSelected = d.is_active;
-                    const statusClass = d.status === 'ERROR' ? 'text-red-600' : (isSelected ? 'text-emerald-600 font-bold' : 'cip-muted');
+                    const statusClass = d.status === 'ERROR' ? 'text-red-600 font-bold' : (isSelected ? 'text-emerald-600 font-bold' : 'cip-muted');
                     const periods = (d.academic_periods && d.academic_periods.length)
                         ? d.academic_periods.join(', ')
-                        : 'Single Period';
-                    const uploadedTime = d.ingested_at ? new Date(d.ingested_at).toLocaleString() : 'Recent';
+                        : (d.coverage || 'All Periods');
+                    const dName = d.dataset_name || d.filename || 'Institutional Dataset';
+                    const dType = (d.ingestion_type || d.format_type || 'DATA').toUpperCase();
+                    const dSigCount = d.total_signals ?? d.total_signals_discovered ?? 0;
+                    const rawTime = d.ingested_at || d.created_at;
+                    const uploadedTime = rawTime ? new Date(rawTime).toLocaleDateString() : 'Recent';
+                    const safeId = escapeHtml(d.ingestion_id || '');
+                    const safeName = escapeHtml(dName);
                     return `
                         <tr class="border-b hover:bg-slate-50 dark:hover:bg-slate-900/40" style="border-color: var(--cip-border-subtle);">
                             <td class="py-2.5 px-3">
-                                <div class="font-bold font-sans">${d.dataset_name}</div>
-                                <div class="text-[10px] cip-muted font-mono">${d.ingestion_id}</div>
+                                <div class="font-bold font-sans">${safeName}</div>
+                                <div class="text-[10px] cip-muted font-mono">${safeId}</div>
                             </td>
-                            <td class="py-2.5 px-3 uppercase text-[11px]">${d.ingestion_type}</td>
-                            <td class="py-2.5 px-3 text-[11px]">${uploadedTime}</td>
-                            <td class="py-2.5 px-3">${periods}</td>
-                            <td class="py-2.5 px-3 font-bold">${d.total_signals} signals</td>
-                            <td class="py-2.5 px-3 ${statusClass}">
-                                ${isSelected ? '● ACTIVE' : d.status}
+                            <td class="py-2.5 px-3 uppercase text-[11px] font-mono">${escapeHtml(dType)}</td>
+                            <td class="py-2.5 px-3 text-[11px]">${escapeHtml(uploadedTime)}</td>
+                            <td class="py-2.5 px-3 text-[11px] font-mono">${escapeHtml(periods)}</td>
+                            <td class="py-2.5 px-3 font-bold font-mono">${dSigCount} signals</td>
+                            <td class="py-2.5 px-3 text-[11px] ${statusClass}">
+                                ${isSelected ? '● ACTIVE' : escapeHtml(d.status || 'INGESTED')}
                             </td>
-                            <td class="py-2.5 px-3 space-x-1.5 whitespace-nowrap">
-                                ${!isSelected ? `<button type="button" onclick="selectDataset('${d.ingestion_id}')" class="px-2 py-1 cip-btn-primary text-[11px]">Select</button>` : `<span class="px-2 py-1 text-[11px] cip-badge font-mono">Current</span>`}
-                                <button type="button" onclick="deleteDataset('${d.ingestion_id}', '${d.dataset_name}')" class="px-2 py-1 border border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded text-[11px]">Delete</button>
+                            <td class="py-2.5 px-3 space-x-1.5 whitespace-nowrap text-right">
+                                ${!isSelected ? `<button type="button" onclick="selectDataset('${safeId}')" class="px-2.5 py-1 cip-btn-primary text-[11px]">Select</button>` : `<span class="px-2.5 py-1 text-[11px] cip-badge font-mono">Current</span>`}
+                                <button type="button" onclick="deleteDataset('${safeId}', '${safeName}')" class="px-2.5 py-1 border border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded text-[11px]">Delete</button>
                             </td>
                         </tr>
                     `;
